@@ -43,10 +43,9 @@
 
       .app {
         max-width: 980px;
-        margin: 0 auto;
+        margin: 0 auto 0 240px;
         min-height: 100dvh;
         padding: 24px 16px 28px;
-        transition: transform 0.22s ease;
       }
 
       .header {
@@ -243,32 +242,22 @@
         color: var(--text);
       }
 
-      .main-layout {
-        display: flex;
-        gap: 20px;
-        align-items: flex-start;
-      }
-
       .nav-col {
-        width: 210px;
-        flex-shrink: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 240px;
+        padding: 24px 14px;
         display: flex;
         flex-direction: column;
         gap: 8px;
-        position: sticky;
-        top: 16px;
-        max-height: calc(100dvh - 40px);
         overflow-y: auto;
         scrollbar-width: none;
       }
 
       .nav-col::-webkit-scrollbar {
         display: none;
-      }
-
-      .content-col {
-        flex: 1;
-        min-width: 0;
       }
 
       .sidebar-create {
@@ -1555,14 +1544,12 @@
           top: 8px;
         }
 
-        .main-layout {
-          flex-direction: column;
+        .nav-col {
+          display: none;
         }
 
-        .nav-col {
-          width: 100%;
-          position: static;
-          max-height: none;
+        .app {
+          margin-left: 0;
         }
       }
     </style>
@@ -1581,20 +1568,17 @@
 
       <input id="fileInput" class="file-input" type="file" accept="application/pdf,image/*" />
 
-      <div class="main-layout">
-        <nav class="nav-col">
-          <button id="createFolderButton" class="sidebar-create" type="button">+ フォルダを追加</button>
-          <div id="folderList" class="folder-list"></div>
-        </nav>
-        <div class="content-col">
-          <section id="emptyState" class="empty">
-            <p>まだ楽譜がありません。最初の1冊を追加しましょう。</p>
-            <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
-          </section>
+      <nav class="nav-col">
+        <button id="createFolderButton" class="sidebar-create" type="button">+ フォルダを追加</button>
+        <div id="folderList" class="folder-list"></div>
+      </nav>
 
-          <ul id="scoreList" class="list" hidden></ul>
-        </div>
-      </div>
+      <section id="emptyState" class="empty">
+        <p>まだ楽譜がありません。最初の1冊を追加しましょう。</p>
+        <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
+      </section>
+
+      <ul id="scoreList" class="list" hidden></ul>
       <footer style="margin-top:32px;padding:8px 0;text-align:center;">
         <a href="privacy.html" style="font-size:12px;color:var(--sub);text-decoration:none;">プライバシーポリシー</a>
       </footer>
