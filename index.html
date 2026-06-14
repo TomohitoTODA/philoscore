@@ -4,9 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>楽譜ライブラリ</title>
+    <meta name="description" content="PDFや画像の楽譜を管理・閲覧できるウェブアプリ。メトロノーム・チューナー・注釈機能付き。Google Driveと同期して複数デバイスで使えます。" />
+    <meta property="og:title" content="楽譜ライブラリ" />
+    <meta property="og:description" content="PDFや画像の楽譜を管理・閲覧できるウェブアプリ。メトロノーム・チューナー・注釈機能付き。" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="楽譜ライブラリ" />
+    <meta name="twitter:description" content="PDFや画像の楽譜を管理・閲覧できるウェブアプリ。メトロノーム・チューナー・注釈機能付き。" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap" rel="stylesheet" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
       :root {
         --bg: #f3f3f5;
@@ -40,12 +49,6 @@
         transition: transform 0.22s ease;
       }
 
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
       .header {
         display: flex;
         align-items: center;
@@ -53,26 +56,46 @@
         margin-bottom: 12px;
       }
 
-      .sidebar-toggle {
-        width: 40px;
-        height: 40px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #fff;
-        color: var(--text);
-        font-size: 18px;
-        font-weight: 700;
-        cursor: pointer;
-        display: grid;
-        place-items: center;
-        flex-shrink: 0;
-      }
-
       .title {
         margin: 0;
         font-size: 44px;
         font-weight: 800;
         letter-spacing: 0.02em;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .login-button {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--text);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .logout-button {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--sub);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .drive-status {
+        font-size: 12px;
+        color: var(--sub);
+        white-space: nowrap;
       }
 
       .add-button,
@@ -220,56 +243,32 @@
         color: var(--text);
       }
 
-      .sidebar-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.18);
-        display: none;
-        z-index: 58;
+      .main-layout {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
       }
 
-      .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: 290px;
-        background: rgba(250, 250, 251, 0.98);
-        border-right: 1px solid var(--line);
-        box-shadow: 8px 0 24px rgba(0, 0, 0, 0.08);
-        padding: 16px 14px;
-        transform: translateX(-102%);
-        transition: transform 0.22s ease;
-        z-index: 59;
+      .nav-col {
+        width: 210px;
+        flex-shrink: 0;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        backdrop-filter: blur(14px);
+        gap: 8px;
+        position: sticky;
+        top: 16px;
+        max-height: calc(100dvh - 40px);
+        overflow-y: auto;
+        scrollbar-width: none;
       }
 
-      body.sidebar-open .sidebar {
-        transform: translateX(0);
+      .nav-col::-webkit-scrollbar {
+        display: none;
       }
 
-      body.sidebar-open .sidebar-backdrop {
-        display: block;
-      }
-
-      body.sidebar-open .app {
-        transform: translateX(290px);
-      }
-
-      .sidebar-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-      }
-
-      .sidebar-title {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 800;
+      .content-col {
+        flex: 1;
+        min-width: 0;
       }
 
       .sidebar-create {
@@ -1556,44 +1555,49 @@
           top: 8px;
         }
 
-        body.sidebar-open .app {
-          transform: none;
+        .main-layout {
+          flex-direction: column;
         }
 
-        .sidebar {
-          width: min(86vw, 320px);
+        .nav-col {
+          width: 100%;
+          position: static;
+          max-height: none;
         }
       }
     </style>
   </head>
   <body>
-    <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
-    <aside id="sidebar" class="sidebar" aria-hidden="true">
-      <div class="sidebar-header">
-        <h2 class="sidebar-title">フォルダ</h2>
-        <button id="closeSidebarButton" class="close-button" type="button">閉じる</button>
-      </div>
-      <button id="createFolderButton" class="sidebar-create" type="button">+ フォルダを追加</button>
-      <div id="folderList" class="folder-list"></div>
-    </aside>
-
     <main class="app">
       <div class="header">
-        <div class="header-left">
-          <button id="sidebarToggleButton" class="sidebar-toggle" type="button" aria-label="サイドバーを開く">☰</button>
-          <h1 class="title">ライブラリ</h1>
+        <h1 class="title">ライブラリ</h1>
+        <div class="header-actions">
+          <span id="driveStatus" class="drive-status"></span>
+          <button id="loginButton" class="login-button" type="button">Googleでログイン</button>
+          <button id="logoutButton" class="logout-button" type="button" hidden>ログアウト</button>
+          <label id="headerAddButton" class="add-button" for="fileInput">+ 追加</label>
         </div>
-        <label id="headerAddButton" class="add-button" for="fileInput">+ 追加</label>
       </div>
 
       <input id="fileInput" class="file-input" type="file" accept="application/pdf,image/*" />
 
-      <section id="emptyState" class="empty">
-        <p>まだ楽譜がありません。最初の1冊を追加しましょう。</p>
-        <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
-      </section>
+      <div class="main-layout">
+        <nav class="nav-col">
+          <button id="createFolderButton" class="sidebar-create" type="button">+ フォルダを追加</button>
+          <div id="folderList" class="folder-list"></div>
+        </nav>
+        <div class="content-col">
+          <section id="emptyState" class="empty">
+            <p>まだ楽譜がありません。最初の1冊を追加しましょう。</p>
+            <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
+          </section>
 
-      <ul id="scoreList" class="list" hidden></ul>
+          <ul id="scoreList" class="list" hidden></ul>
+        </div>
+      </div>
+      <footer style="margin-top:32px;padding:8px 0;text-align:center;">
+        <a href="privacy.html" style="font-size:12px;color:var(--sub);text-decoration:none;">プライバシーポリシー</a>
+      </footer>
     </main>
 
     <div id="backdrop" class="overlay"></div>
@@ -1824,6 +1828,6 @@
       </div>
     </section>
 
-    <script src="script.js?v=20260612-95" defer></script>
+    <script src="script.js?v=20260615-1" defer></script>
   </body>
 </html>
