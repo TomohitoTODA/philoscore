@@ -244,25 +244,20 @@
 
       .lib-layout {
         display: flex;
-        gap: 20px;
-        align-items: flex-start;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        min-height: 200px;
       }
 
       .nav-col {
         width: 200px;
         flex-shrink: 0;
-        position: sticky;
-        top: 16px;
-        max-height: calc(100dvh - 40px);
+        padding: 14px;
+        border-right: 1px solid var(--line);
         display: flex;
         flex-direction: column;
         gap: 4px;
-        overflow-y: auto;
-        scrollbar-width: none;
-      }
-
-      .nav-col::-webkit-scrollbar {
-        display: none;
       }
 
       .nav-col .folder-item {
@@ -284,6 +279,18 @@
       .lib-content {
         flex: 1;
         min-width: 0;
+      }
+
+      .lib-content .empty {
+        border: none;
+        background: transparent;
+        border-radius: 0;
+      }
+
+      .lib-content .list {
+        border: none;
+        background: transparent;
+        border-radius: 0;
       }
 
       .sidebar-create {
@@ -1576,11 +1583,8 @@
 
         .nav-col {
           width: 100%;
-          position: static;
-          max-height: none;
-          flex-direction: row;
-          flex-wrap: wrap;
-          gap: 6px;
+          border-right: none;
+          border-bottom: 1px solid var(--line);
         }
       }
     </style>
