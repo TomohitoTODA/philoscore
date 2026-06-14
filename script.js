@@ -47,8 +47,7 @@ async function ensurePdfJs() {
 const fileInput = document.getElementById('fileInput');
 const emptyState = document.getElementById('emptyState');
 const scoreList = document.getElementById('scoreList');
-const createFolderButton = document.getElementById('createFolderButton');
-const folderList = document.getElementById('folderList');
+const folderTabs = document.getElementById('folderTabs');
 
 const backdrop = document.getElementById('backdrop');
 const previewSheet = document.getElementById('previewSheet');
@@ -209,7 +208,6 @@ let folderPickerExpandedIds = new Set();
 let folderPickerMultiple = true;
 let folderPickerSelectableParents = false;
 let folderPickerAllowEmptySelection = false;
-let isRenderingSidebar = false;
 let isRenderingList = false;
 
 const toolMap = {
@@ -379,238 +377,24 @@ function syncBackdropVisibility() {
 }
 
 function renderSidebar() {
-  if (isRenderingSidebar) {
-    return;
-  }
-  isRenderingSidebar = true;
-  try {
-  if (!folderList) {
-    return;
-  }
-
-  folderList.innerHTML = '';
-
-  const allRow = document.createElement('div');
-  allRow.className = 'folder-item';
-  allRow.classList.toggle('active', activeFolderId === 'all');
-  allRow.addEventListener('click', () => setActiveFolder('all'));
-  const allMain = document.createElement('button');
-  allMain.className = 'folder-item-main';
-  allMain.type = 'button';
-  allMain.addEventListener('click', (event) => { event.stopPropagation(); setActiveFolder('all'); });
-  const allIcon = document.createElement('span');
-  allIcon.className = 'folder-item-icon';
-  allIcon.textContent = '≡';
-  const allLabel = document.createElement('span');
-  allLabel.className = 'folder-item-label';
-  allLabel.textContent = 'すべて';
-  allMain.append(allIcon, allLabel);
-  const allCount = document.createElement('span');
-  allCount.className = 'folder-item-count';
-  allCount.textContent = String(library.length);
-  allRow.append(allMain, allCount);
-  folderList.appendChild(allRow);
-
-  const favoritesSection = document.createElement('section');
-  favoritesSection.className = 'sidebar-section';
-
-  const favoritesTitle = document.createElement('h3');
-  favoritesTitle.className = 'sidebar-section-title';
-  favoritesTitle.textContent = `お気に入り (${favoriteItemIds.length})`;
-  favoritesSection.appendChild(favoritesTitle);
-
-  const favoriteList = document.createElement('div');
-  favoriteList.className = 'favorite-list';
-
-  if (favoriteItemIds.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'folder-empty';
-    empty.textContent = 'お気に入りはまだありません。';
-    favoriteList.appendChild(empty);
-  } else {
-    favoriteItemIds
-      .map((itemId) => getLibraryItemById(itemId))
-      .filter(Boolean)
-      .forEach((item) => {
-        const button = document.createElement('div');
-        button.className = 'favorite-item';
-        button.setAttribute('role', 'group');
-
-        const title = document.createElement('button');
-        title.className = 'favorite-item-title favorite-item-main';
-        title.type = 'button';
-        title.textContent = item.title;
-        title.addEventListener('click', () => openPreviewSheet(item));
-
-        const unstar = document.createElement('button');
-        unstar.className = 'favorite-item-unstar';
-        unstar.type = 'button';
-        unstar.textContent = '★';
-        unstar.setAttribute('aria-label', `${item.title} をお気に入りから外す`);
-        unstar.addEventListener('click', (event) => {
-          event.stopPropagation();
-          toggleFavoriteItem(item.id, false);
-        });
-
-        button.append(title, unstar);
-        favoriteList.appendChild(button);
-      });
-  }
-
-  favoritesSection.appendChild(favoriteList);
-  folderList.appendChild(favoritesSection);
-
-  const treeSection = document.createElement('section');
-  treeSection.className = 'sidebar-section';
-
-  const treeTitle = document.createElement('h3');
-  treeTitle.className = 'sidebar-section-title';
-  treeTitle.textContent = 'フォルダ';
-  treeSection.appendChild(treeTitle);
-
-  const tree = document.createElement('div');
-  tree.className = 'folder-tree';
-
-  const rootNodes = folders.filter((folder) => folder.parentId === null && folder.id !== 'favorites');
-
-  const renderNode = (node, depth) => {
-    const children = getFolderChildren(node.id);
-    const nodeWrap = document.createElement('div');
-    nodeWrap.className = 'folder-node';
-    nodeWrap.style.paddingLeft = `${depth * 12}px`;
-
-    const row = document.createElement('div');
-    row.className = 'folder-item';
-    row.classList.toggle('active', activeFolderId === node.id);
-    row.addEventListener('click', () => setActiveFolder(node.id));
-
-    const toggleButton = document.createElement('button');
-    toggleButton.className = 'folder-node-toggle';
-    toggleButton.type = 'button';
-    toggleButton.setAttribute('aria-label', `${node.name} を展開`);
-    if (children.length > 0) {
-      toggleButton.textContent = expandedFolderIds.has(node.id) ? '▾' : '▸';
-      toggleButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        toggleFolderExpanded(node.id);
-      });
-    } else {
-      toggleButton.textContent = ' ';
-      toggleButton.disabled = true;
-      toggleButton.classList.add('folder-node-toggle-empty');
-    }
-
-    const mainButton = document.createElement('button');
-    mainButton.className = 'folder-item-main';
-    mainButton.type = 'button';
-    mainButton.addEventListener('click', (event) => {
-      event.stopPropagation();
-      setActiveFolder(node.id);
-    });
-
-    const icon = document.createElement('span');
-    icon.className = 'folder-item-icon';
-    icon.textContent = node.kind === 'section' ? '◉' : node.kind === 'group' ? '▣' : '▤';
-
-    const label = document.createElement('span');
-    label.className = 'folder-node-label';
-    label.textContent = node.name;
-
-    const count = document.createElement('span');
-    count.className = 'folder-item-count';
-    count.textContent = String(getFolderItemCount(node.id));
-
-    mainButton.append(icon, label);
-
-    const more = document.createElement('button');
-    more.className = 'more';
-    more.type = 'button';
-    more.textContent = '…';
-    more.setAttribute('aria-label', `${node.name} のメニュー`);
-    more.setAttribute('aria-expanded', openFolderMenuId === node.id ? 'true' : 'false');
-    more.addEventListener('click', (event) => {
-      event.stopPropagation();
-      openFolderMenuId = openFolderMenuId === node.id ? null : node.id;
-      renderSidebar();
-    });
-
-    row.append(toggleButton, mainButton, count, more);
-
-    const menu = document.createElement('div');
-    menu.className = 'folder-node-menu';
-    menu.hidden = openFolderMenuId !== node.id;
-    menu.addEventListener('click', (event) => {
-      event.stopPropagation();
-    });
-
-    const addChildAction = document.createElement('button');
-    addChildAction.className = 'library-menu-button';
-    addChildAction.type = 'button';
-    addChildAction.textContent = depth < 3 ? '子フォルダを追加' : '楽曲フォルダを追加';
-    addChildAction.disabled = !canAddChildFolder(node.id);
-    addChildAction.addEventListener('click', () => {
-      const nextName = window.prompt(depth < 2 ? 'フォルダ名を入力してください' : '楽曲フォルダ名を入力してください');
-      if (!nextName) {
-        return;
-      }
-      const child = addFolder(nextName, node.id);
-      if (child) {
-        expandedFolderIds.add(node.id);
-        closeFolderMenu();
-        renderSidebar();
-        setActiveFolder(child.id);
-      }
-    });
-
-    const renameAction = document.createElement('button');
-    renameAction.className = 'library-menu-button edit';
-    renameAction.type = 'button';
-    renameAction.textContent = '名前変更';
-    renameAction.disabled = isSystemFolder(node.id);
-    renameAction.addEventListener('click', () => {
-      const nextName = window.prompt('新しい名前を入力してください', node.name);
-      if (!nextName) {
-        return;
-      }
-      renameFolderNode(node.id, nextName);
-    });
-
-    const deleteAction = document.createElement('button');
-    deleteAction.className = 'library-menu-button danger';
-    deleteAction.type = 'button';
-    deleteAction.textContent = '削除';
-    deleteAction.disabled = isSystemFolder(node.id);
-    deleteAction.addEventListener('click', () => {
-      const confirmed = window.confirm(`「${node.name}」を削除しますか？\nこのフォルダ配下の楽譜は未分類へ戻します。`);
-      if (!confirmed) {
-        return;
-      }
-      deleteFolderNode(node.id);
-    });
-
-    menu.append(addChildAction, renameAction, deleteAction);
-    nodeWrap.append(row, menu);
-    tree.appendChild(nodeWrap);
-
-    if (expandedFolderIds.has(node.id)) {
-      children.forEach((child) => renderNode(child, depth + 1));
-    }
-  };
-
-  rootNodes.forEach((node) => renderNode(node, 0));
-
-  if (rootNodes.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'folder-empty';
-    empty.textContent = 'フォルダはまだありません。';
-    tree.appendChild(empty);
-  }
-
-  treeSection.appendChild(tree);
-  folderList.appendChild(treeSection);
-  } finally {
-    isRenderingSidebar = false;
-  }
+  if (!folderTabs) return;
+  folderTabs.innerHTML = '';
+  const navItems = [
+    { id: 'all', label: 'すべて' },
+    { id: 'favorites', label: 'お気に入り' },
+    { id: 'orchestra', label: 'オーケストラ' },
+    { id: 'chamber', label: '室内楽' },
+    { id: 'solo', label: 'ソロ曲' },
+  ];
+  navItems.forEach(({ id, label }) => {
+    const btn = document.createElement('button');
+    btn.className = 'folder-tab';
+    btn.classList.toggle('active', activeFolderId === id);
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.addEventListener('click', () => setActiveFolder(id));
+    folderTabs.appendChild(btn);
+  });
 }
 
 function openEditSheet(item) {
@@ -684,7 +468,6 @@ function saveEditSheet() {
 
   applyLibraryItemMetadata(item, editTitleInput.value, editComposerInput.value);
   closeEditSheet();
-  if (isSignedIn()) saveLibraryMetadata();
 }
 
 function cleanupLibraryItem(item) {
@@ -1538,7 +1321,6 @@ function deleteLibraryItem(itemId) {
   openLibraryMenuId = null;
   renderReaderTabs();
   renderList();
-  if (isSignedIn()) saveLibraryMetadata();
 }
 
 function updatePagerButtons(state, prevButton, nextButton, label) {
@@ -3789,10 +3571,6 @@ function addFile(file) {
 
     stage = 'render-list';
     renderList();
-
-    if (isSignedIn()) {
-      uploadPdfToDrive(item);
-    }
   } catch (error) {
     console.error('Failed to add file.', error);
     const reason = error && error.message ? `\n(${error.message})` : '';
@@ -3910,7 +3688,7 @@ bindTap(tunerEButton, () => {
   triggerTunerTone('E');
 });
 bindTap(micTunerToggleButton, toggleMicTuner);
-bindTap(createFolderButton, openFolderParentSelectionSheet);
+
 if (tunerThresholdSlider) {
   tunerThresholdSlider.addEventListener('input', (event) => {
     tunerThresholdPercent = Number(event.target.value) || 100;
@@ -3943,6 +3721,7 @@ backdrop.addEventListener('click', () => {
   closeReader();
 });
 
+
 document.addEventListener('click', (event) => {
   if (!scoreList.contains(event.target)) {
     if (openLibraryMenuId !== null) {
@@ -3951,7 +3730,7 @@ document.addEventListener('click', (event) => {
     }
   }
 
-  if (sidebar && !sidebar.contains(event.target) && openFolderMenuId !== null) {
+  if (openFolderMenuId !== null) {
     closeFolderMenu();
   }
 });
@@ -3995,6 +3774,7 @@ document.addEventListener('keydown', (event) => {
       closeEditSheet();
       return;
     }
+
 
   }
 
@@ -4139,249 +3919,6 @@ bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
 
 openAnnotationDb().then(loadAllAnnotationsFromDb).catch(() => {});
 renderList();
-
-// --- Google Auth & Drive ---
-
-const GOOGLE_CLIENT_ID = '514333808352-p9433pdp4dcd85u4ctoh1cfdibj6jsec.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const DRIVE_APP_FOLDER_NAME = 'PhiloScore';
-
-let googleAccessToken = null;
-let googleTokenExpiry = 0;
-let googleTokenClient = null;
-let driveAppFolderId = null;
-let driveMetadataFileId = null;
-
-const loginButton = document.getElementById('loginButton');
-const logoutButton = document.getElementById('logoutButton');
-const driveStatus = document.getElementById('driveStatus');
-
-function isSignedIn() {
-  return Boolean(googleAccessToken && Date.now() < googleTokenExpiry);
-}
-
-function renderAuthUI(statusText) {
-  if (isSignedIn()) {
-    loginButton.hidden = true;
-    logoutButton.hidden = false;
-    driveStatus.textContent = statusText ?? 'Drive同期済み';
-  } else {
-    loginButton.hidden = false;
-    logoutButton.hidden = true;
-    driveStatus.textContent = '';
-  }
-}
-
-function handleTokenResponse(response) {
-  if (response.error) {
-    console.error('Auth error:', response.error);
-    return;
-  }
-  googleAccessToken = response.access_token;
-  googleTokenExpiry = Date.now() + (response.expires_in - 60) * 1000;
-  renderAuthUI('読み込み中…');
-  loadFromDrive();
-}
-
-function initGoogleAuth() {
-  if (!window.google?.accounts?.oauth2) {
-    return;
-  }
-  googleTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: DRIVE_SCOPE,
-    callback: handleTokenResponse,
-  });
-  bindTap(loginButton, () => googleTokenClient.requestAccessToken());
-  bindTap(logoutButton, () => {
-    google.accounts.oauth2.revoke(googleAccessToken, () => {});
-    googleAccessToken = null;
-    googleTokenExpiry = 0;
-    driveAppFolderId = null;
-    driveMetadataFileId = null;
-    renderAuthUI();
-  });
-}
-
-async function driveApiFetch(method, path, options = {}) {
-  if (!googleAccessToken) throw new Error('Not signed in');
-  const res = await fetch(`https://www.googleapis.com${path}`, {
-    method,
-    headers: {
-      'Authorization': `Bearer ${googleAccessToken}`,
-      ...options.headers,
-    },
-    body: options.body,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Drive API ${res.status}: ${text}`);
-  }
-  return res;
-}
-
-async function getOrCreateDriveAppFolder() {
-  if (driveAppFolderId) return driveAppFolderId;
-
-  const q = encodeURIComponent(`name='${DRIVE_APP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const res = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`);
-  const data = await res.json();
-
-  if (data.files?.length > 0) {
-    driveAppFolderId = data.files[0].id;
-    return driveAppFolderId;
-  }
-
-  const createRes = await driveApiFetch('POST', '/drive/v3/files', {
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: DRIVE_APP_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
-  });
-  const createData = await createRes.json();
-  driveAppFolderId = createData.id;
-  return driveAppFolderId;
-}
-
-async function uploadPdfToDrive(item) {
-  if (!isSignedIn() || !item.file) return;
-  try {
-    const folderId = await getOrCreateDriveAppFolder();
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify({ name: item.file.name, parents: [folderId] })], { type: 'application/json' }));
-    form.append('file', item.file);
-
-    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${googleAccessToken}` },
-      body: form,
-    });
-    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-    const data = await res.json();
-    item.driveFileId = data.id;
-    await saveLibraryMetadata();
-  } catch (err) {
-    console.error('Drive upload failed:', err);
-  }
-}
-
-async function saveLibraryMetadata() {
-  if (!isSignedIn()) return;
-  try {
-    const folderId = await getOrCreateDriveAppFolder();
-    const payload = JSON.stringify({
-      version: 1,
-      savedAt: new Date().toISOString(),
-      items: library.map(item => ({
-        id: item.id,
-        title: item.title,
-        composer: item.composer || '',
-        type: item.type,
-        folderIds: item.folderIds || [item.folderId || 'inbox'],
-        driveFileId: item.driveFileId || null,
-        fileName: item.file?.name || `${item.title}.pdf`,
-	fileLastModified: item.file?.lastModified || 0,
-      })),
-    });
-    const blob = new Blob([payload], { type: 'application/json' });
-
-    if (driveMetadataFileId) {
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveMetadataFileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-        body: blob,
-      });
-      return;
-    }
-
-    const q = encodeURIComponent(`name='_library.json' and '${folderId}' in parents and trashed=false`);
-    const searchRes = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)`);
-    const searchData = await searchRes.json();
-
-    if (searchData.files?.length > 0) {
-      driveMetadataFileId = searchData.files[0].id;
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveMetadataFileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
-        body: blob,
-      });
-    } else {
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify({ name: '_library.json', parents: [folderId] })], { type: 'application/json' }));
-      form.append('file', blob);
-      const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${googleAccessToken}` },
-        body: form,
-      });
-      const createData = await createRes.json();
-      driveMetadataFileId = createData.id;
-    }
-  } catch (err) {
-    console.error('Save metadata failed:', err);
-  }
-}
-
-async function loadFromDrive() {
-  if (!isSignedIn()) return;
-  try {
-    renderAuthUI('読み込み中…');
-    const folderId = await getOrCreateDriveAppFolder();
-
-    const q = encodeURIComponent(`name='_library.json' and '${folderId}' in parents and trashed=false`);
-    const searchRes = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)`);
-    const searchData = await searchRes.json();
-
-    if (!searchData.files?.length) {
-      renderAuthUI('データなし');
-      return;
-    }
-
-    driveMetadataFileId = searchData.files[0].id;
-    const metaRes = await driveApiFetch('GET', `/drive/v3/files/${driveMetadataFileId}?alt=media`);
-    const meta = await metaRes.json();
-
-    if (!meta.items?.length) {
-      renderAuthUI('データなし');
-      return;
-    }
-
-    for (const saved of meta.items) {
-      if (!saved.driveFileId) continue;
-      if (library.find(i => i.id === saved.id)) continue;
-
-      try {
-        const fileRes = await driveApiFetch('GET', `/drive/v3/files/${saved.driveFileId}?alt=media`);
-        const blob = await fileRes.blob();
-        const file = new File([blob], saved.fileName || `${saved.title}.pdf`, { type: blob.type || 'application/pdf', lastModified: saved.fileLastModified || 0 });
-
-        library.push({
-          id: saved.id,
-          title: saved.title,
-          composer: saved.composer || '',
-          type: saved.type || 'pdf',
-          file,
-          url: URL.createObjectURL(file),
-          lastPage: 1,
-          folderIds: saved.folderIds || ['inbox'],
-          folderId: (saved.folderIds || ['inbox'])[0],
-          driveFileId: saved.driveFileId,
-        });
-      } catch (err) {
-        console.error(`Failed to load "${saved.title}":`, err);
-      }
-    }
-
-    renderSidebar();
-    renderList();
-    renderAuthUI(`同期済み（${library.length}件）`);
-  } catch (err) {
-    console.error('Load from Drive failed:', err);
-    renderAuthUI('同期失敗');
-  }
-}
-
-window.addEventListener('load', () => {
-  initGoogleAuth();
-});
 
 (function preloadSymbolImages() {
   const svgEntries = [['circle', '#d32f2f']];
