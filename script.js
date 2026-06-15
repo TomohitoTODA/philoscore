@@ -129,6 +129,7 @@ const tunerThresholdValue = document.getElementById('tunerThresholdValue');
 const library = [];
 const pdfCache = new Map();
 const annotationStrokes = new Map(); // key → { version, ops: [] }
+const annotationRedoStacks = new Map(); // key → op[] (undoで取り除いたop)
 let currentStroke = null;
 let annotationDb = null;
 const persistentAnnotationCanvases = new Map();
@@ -2318,6 +2319,7 @@ function pushAnnotationOp(op) {
   const key = getAnnotationKey();
   if (!key) return;
   getPageStrokes(key).ops.push(op);
+  annotationRedoStacks.delete(key); // 新規描画でredoスタックをクリア
 }
 
 // ── Replay ───────────────────────────────────────────────────────────────────
@@ -3166,7 +3168,9 @@ function undoLastAnnotation() {
   const data = annotationStrokes.get(key);
   if (!data || data.ops.length === 0) return;
 
-  data.ops.pop();
+  const removed = data.ops.pop();
+  if (!annotationRedoStacks.has(key)) annotationRedoStacks.set(key, []);
+  annotationRedoStacks.get(key).push(removed);
 
   if (annotationCanvas && annotationContext) {
     annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
@@ -3176,6 +3180,24 @@ function undoLastAnnotation() {
   }
 
   saveAnnotationOpsToDb(key, data);
+  scheduleDriveAnnotationSync();
+}
+
+function redoLastAnnotation() {
+  const key = getAnnotationKey();
+  if (!key) return;
+  const redoStack = annotationRedoStacks.get(key);
+  if (!redoStack || redoStack.length === 0) return;
+
+  const op = redoStack.pop();
+  getPageStrokes(key).ops.push(op);
+
+  if (annotationCanvas && annotationContext) {
+    annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+    replayAnnotationOps(annotationContext, annotationCanvas, annotationStrokes.get(key).ops);
+  }
+
+  saveAnnotationOpsToDb(key, annotationStrokes.get(key));
   scheduleDriveAnnotationSync();
 }
 
@@ -4005,9 +4027,18 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
-  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
     event.preventDefault();
     undoLastAnnotation();
+    return;
+  }
+
+  if (
+    (event.ctrlKey || event.metaKey) && event.key === 'y' ||
+    (event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z'
+  ) {
+    event.preventDefault();
+    redoLastAnnotation();
     return;
   }
 
