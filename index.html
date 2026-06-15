@@ -54,9 +54,15 @@
 
       .folder-tabs {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 8px;
         margin-bottom: 16px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .folder-tabs::-webkit-scrollbar {
+        display: none;
       }
 
       .folder-tab {
@@ -1878,6 +1884,6 @@
       </div>
     </section>
 
-    <script src="script.js?v=20260615-03" defer></script>
+    <script src="script.js?v=20260615-04" defer></script>
   </body>
 </html>
