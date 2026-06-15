@@ -437,7 +437,6 @@ function renderSubFilter() {
     const typeGroup = document.createElement('div');
     typeGroup.className = 'sub-filter-group';
     [
-      { id: 'all', label: 'すべて' },
       { id: 'part', label: 'パート譜' },
       { id: 'score', label: 'スコア' },
     ].forEach(({ id, label }) => {
@@ -447,7 +446,8 @@ function renderSubFilter() {
       btn.classList.toggle('active', activeTypeFilter === id);
       btn.textContent = label;
       btn.addEventListener('click', () => {
-        activeTypeFilter = id;
+        // 同じボタンを再クリックで解除（すべて表示に戻る）
+        activeTypeFilter = activeTypeFilter === id ? 'all' : id;
         renderSidebar();
         renderSubFilter();
         renderList();
@@ -3734,8 +3734,19 @@ function addFile(file) {
     const title = createUniqueLibraryTitle(baseTitle(file.name));
     // Use effective folder (respects current category + sub-filter state)
     const rawTarget = getEffectiveFolderId();
-    const targetFolderId = (rawTarget === 'all' || rawTarget === 'favorites' || !getFolderById(rawTarget))
-      ? 'inbox' : rawTarget;
+    let targetFolderId;
+    if (rawTarget === 'all' || rawTarget === 'favorites' || !getFolderById(rawTarget)) {
+      targetFolderId = 'inbox';
+    } else {
+      const node = getFolderById(rawTarget);
+      // セクション/グループフォルダ（すべて選択中など）は練習中サブフォルダへ
+      if (node && (node.kind === 'section' || node.kind === 'group')) {
+        const practiceId = `${rawTarget}-practice`;
+        targetFolderId = getFolderById(practiceId) ? practiceId : rawTarget;
+      } else {
+        targetFolderId = rawTarget;
+      }
+    }
 
     const item = {
       id: createLocalId(),
