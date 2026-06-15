@@ -76,6 +76,43 @@
         border-color: var(--accent);
       }
 
+      .sub-filter {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+
+      .sub-filter-group {
+        display: flex;
+        border: 1.5px solid var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .sub-filter-btn {
+        border: none;
+        border-right: 1.5px solid var(--line);
+        background: transparent;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--sub);
+        white-space: nowrap;
+      }
+
+      .sub-filter-btn:last-child {
+        border-right: none;
+      }
+
+      .sub-filter-btn.active {
+        background: var(--accent);
+        color: #fff;
+      }
+
       .privacy-footer {
         margin-top: 32px;
         text-align: center;
@@ -1600,6 +1637,8 @@
 
       <div id="folderTabs" class="folder-tabs"></div>
 
+      <div id="subFilter" class="sub-filter" hidden></div>
+
       <section id="emptyState" class="empty">
         <p>まだ楽譜がありません。最初の1冊を追加しましょう。</p>
         <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
@@ -1840,6 +1879,6 @@
       </div>
     </section>
 
-    <script src="script.js?v=20260615-01" defer></script>
+    <script src="script.js?v=20260615-02" defer></script>
   </body>
 </html>

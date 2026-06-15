@@ -48,6 +48,7 @@ const fileInput = document.getElementById('fileInput');
 const emptyState = document.getElementById('emptyState');
 const scoreList = document.getElementById('scoreList');
 const folderTabs = document.getElementById('folderTabs');
+const subFilter = document.getElementById('subFilter');
 
 const backdrop = document.getElementById('backdrop');
 const previewSheet = document.getElementById('previewSheet');
@@ -201,6 +202,8 @@ let readerLayoutMode = 'single';
 let readerPendingAnchorPage = null;
 let isReaderFocusMode = false;
 let activeFolderId = 'all';
+let activeStatusFilter = 'all';
+let activeTypeFilter = 'all';
 let expandedFolderIds = new Set();
 let folderPickerCallback = null;
 let folderPickerSelectedIds = new Set();
@@ -395,6 +398,87 @@ function renderSidebar() {
     btn.addEventListener('click', () => setActiveFolder(id));
     folderTabs.appendChild(btn);
   });
+}
+
+function renderSubFilter() {
+  if (!subFilter) return;
+  const showSub = activeFolderId !== 'all' && activeFolderId !== 'favorites';
+  subFilter.hidden = !showSub;
+  if (!showSub) return;
+
+  subFilter.innerHTML = '';
+
+  const statusGroup = document.createElement('div');
+  statusGroup.className = 'sub-filter-group';
+  [
+    { id: 'all', label: 'すべて' },
+    { id: 'practice', label: '練習中' },
+    { id: 'past', label: '過去の曲' },
+  ].forEach(({ id, label }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sub-filter-btn';
+    btn.classList.toggle('active', activeStatusFilter === id);
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      activeStatusFilter = id;
+      if (id === 'all') activeTypeFilter = 'all';
+      renderSubFilter();
+      renderList();
+    });
+    statusGroup.appendChild(btn);
+  });
+  subFilter.appendChild(statusGroup);
+
+  const hasTypeFilter = activeFolderId === 'orchestra' && activeStatusFilter !== 'all';
+  if (hasTypeFilter) {
+    const typeGroup = document.createElement('div');
+    typeGroup.className = 'sub-filter-group';
+    [
+      { id: 'all', label: 'すべて' },
+      { id: 'part', label: 'パート譜' },
+      { id: 'score', label: 'スコア' },
+    ].forEach(({ id, label }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sub-filter-btn';
+      btn.classList.toggle('active', activeTypeFilter === id);
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        activeTypeFilter = id;
+        renderSubFilter();
+        renderList();
+      });
+      typeGroup.appendChild(btn);
+    });
+    subFilter.appendChild(typeGroup);
+  } else if (!hasTypeFilter) {
+    activeTypeFilter = 'all';
+  }
+}
+
+function getEffectiveFolderId() {
+  if (activeFolderId === 'all' || activeFolderId === 'favorites') return activeFolderId;
+  if (activeStatusFilter === 'all') return activeFolderId;
+  const statusId = `${activeFolderId}-${activeStatusFilter}`;
+  if (!getFolderById(statusId)) return activeFolderId;
+  if (activeTypeFilter !== 'all') {
+    const typeId = `${statusId}-${activeTypeFilter}`;
+    if (getFolderById(typeId)) return typeId;
+  }
+  return statusId;
+}
+
+function moveItemToStatus(item, targetStatus) {
+  const fromStatus = targetStatus === 'past' ? 'practice' : 'past';
+  const folderIds = Array.isArray(item.folderIds) ? [...item.folderIds] : [item.folderId || 'inbox'];
+  const newIds = folderIds.map((id) =>
+    id.includes(`-${fromStatus}`) ? id.replace(`-${fromStatus}`, `-${targetStatus}`) : id
+  );
+  setItemFolderIds(item, newIds);
+  openLibraryMenuId = null;
+  renderSidebar();
+  renderList();
 }
 
 function openEditSheet(item) {
@@ -732,15 +816,16 @@ function isSystemFolder(folderId) {
 }
 
 function getVisibleLibraryItems() {
-  if (activeFolderId === 'all') {
+  const effectiveId = getEffectiveFolderId();
+  if (effectiveId === 'all') {
     return library;
   }
 
-  if (activeFolderId === 'favorites') {
+  if (effectiveId === 'favorites') {
     return library.filter((item) => favoriteItemIds.includes(item.id));
   }
 
-  return library.filter((item) => itemMatchesFolderTree(item, activeFolderId));
+  return library.filter((item) => itemMatchesFolderTree(item, effectiveId));
 }
 
 function getFolderItemCount(folderId) {
@@ -775,8 +860,13 @@ function setActiveFolder(folderId) {
   if (folderId !== 'all' && folderId !== 'favorites') {
     expandFolderPath(folderId);
   }
+  if (folderId !== activeFolderId) {
+    activeStatusFilter = 'all';
+    activeTypeFilter = 'all';
+  }
   activeFolderId = folderId;
   renderSidebar();
+  renderSubFilter();
   renderList();
 }
 
@@ -3479,6 +3569,10 @@ function renderList() {
     };
     bindTap(moveFolderAction, openMoveFolderAction);
 
+    const itemFolderIds = Array.isArray(item.folderIds) ? item.folderIds : [item.folderId || 'inbox'];
+    const isInPractice = itemFolderIds.some((id) => id.includes('-practice'));
+    const isInPast = itemFolderIds.some((id) => id.includes('-past'));
+
     const deleteAction = document.createElement('button');
     deleteAction.className = 'library-menu-button danger';
     deleteAction.type = 'button';
@@ -3491,7 +3585,19 @@ function renderList() {
       deleteLibraryItem(item.id);
     });
 
-    menu.append(previewAction, editAction, favoriteAction, moveFolderAction, deleteAction);
+    const menuItems = [previewAction, editAction, favoriteAction];
+    if (isInPractice || isInPast) {
+      const moveStatusAction = document.createElement('button');
+      moveStatusAction.className = 'library-menu-button';
+      moveStatusAction.type = 'button';
+      moveStatusAction.textContent = isInPractice ? '過去の曲に移動' : '練習中に戻す';
+      moveStatusAction.addEventListener('click', () => {
+        moveItemToStatus(item, isInPractice ? 'past' : 'practice');
+      });
+      menuItems.push(moveStatusAction);
+    }
+    menuItems.push(moveFolderAction, deleteAction);
+    menu.append(...menuItems);
 
     row.append(thumb, meta, more, menu);
         scoreList.appendChild(row);
@@ -3502,6 +3608,7 @@ function renderList() {
 
     try {
       renderSidebar();
+      renderSubFilter();
     } catch (error) {
       throw new Error(`renderList:renderSidebar: ${error && error.message ? error.message : error}`);
     }
