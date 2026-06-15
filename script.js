@@ -3160,6 +3160,25 @@ function clearCurrentAnnotation() {
   }
 }
 
+function undoLastAnnotation() {
+  const key = getAnnotationKey();
+  if (!key) return;
+  const data = annotationStrokes.get(key);
+  if (!data || data.ops.length === 0) return;
+
+  data.ops.pop();
+
+  if (annotationCanvas && annotationContext) {
+    annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+    if (data.ops.length > 0) {
+      replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+    }
+  }
+
+  saveAnnotationOpsToDb(key, data);
+  scheduleDriveAnnotationSync();
+}
+
 async function exportAnnotatedPdf() {
   if (!activeItem) return;
   if (!window.PDFLib) {
@@ -3983,6 +4002,12 @@ document.addEventListener('keydown', (event) => {
   }
 
   if (reader.style.display === 'none' || reader.getAttribute('aria-hidden') === 'true') {
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+    event.preventDefault();
+    undoLastAnnotation();
     return;
   }
 
