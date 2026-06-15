@@ -76,12 +76,13 @@
         border-color: var(--accent);
       }
 
-      .sub-filter {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 16px;
-        flex-wrap: wrap;
+      .filter-separator {
+        width: 1.5px;
+        height: 26px;
+        background: var(--line);
+        margin: 0 4px;
+        align-self: center;
+        flex-shrink: 0;
       }
 
       .sub-filter-group {
@@ -1637,8 +1638,6 @@
 
       <div id="folderTabs" class="folder-tabs"></div>
 
-      <div id="subFilter" class="sub-filter" hidden></div>
-
       <section id="emptyState" class="empty">
         <p>まだ楽譜がありません。最初の1冊を追加しましょう。</p>
         <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
@@ -1879,6 +1878,6 @@
       </div>
     </section>
 
-    <script src="script.js?v=20260615-02" defer></script>
+    <script src="script.js?v=20260615-03" defer></script>
   </body>
 </html>

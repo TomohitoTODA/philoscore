@@ -48,7 +48,6 @@ const fileInput = document.getElementById('fileInput');
 const emptyState = document.getElementById('emptyState');
 const scoreList = document.getElementById('scoreList');
 const folderTabs = document.getElementById('folderTabs');
-const subFilter = document.getElementById('subFilter');
 
 const backdrop = document.getElementById('backdrop');
 const previewSheet = document.getElementById('previewSheet');
@@ -401,12 +400,13 @@ function renderSidebar() {
 }
 
 function renderSubFilter() {
-  if (!subFilter) return;
+  if (!folderTabs) return;
   const showSub = activeFolderId !== 'all' && activeFolderId !== 'favorites';
-  subFilter.hidden = !showSub;
   if (!showSub) return;
 
-  subFilter.innerHTML = '';
+  const sep = document.createElement('div');
+  sep.className = 'filter-separator';
+  folderTabs.appendChild(sep);
 
   const statusGroup = document.createElement('div');
   statusGroup.className = 'sub-filter-group';
@@ -423,12 +423,13 @@ function renderSubFilter() {
     btn.addEventListener('click', () => {
       activeStatusFilter = id;
       if (id === 'all') activeTypeFilter = 'all';
+      renderSidebar();
       renderSubFilter();
       renderList();
     });
     statusGroup.appendChild(btn);
   });
-  subFilter.appendChild(statusGroup);
+  folderTabs.appendChild(statusGroup);
 
   const hasTypeFilter = activeFolderId === 'orchestra' && activeStatusFilter !== 'all';
   if (hasTypeFilter) {
@@ -446,13 +447,14 @@ function renderSubFilter() {
       btn.textContent = label;
       btn.addEventListener('click', () => {
         activeTypeFilter = id;
+        renderSidebar();
         renderSubFilter();
         renderList();
       });
       typeGroup.appendChild(btn);
     });
-    subFilter.appendChild(typeGroup);
-  } else if (!hasTypeFilter) {
+    folderTabs.appendChild(typeGroup);
+  } else {
     activeTypeFilter = 'all';
   }
 }
@@ -865,8 +867,6 @@ function setActiveFolder(folderId) {
     activeTypeFilter = 'all';
   }
   activeFolderId = folderId;
-  renderSidebar();
-  renderSubFilter();
   renderList();
 }
 
