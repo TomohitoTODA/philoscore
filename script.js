@@ -4027,6 +4027,249 @@ bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
 openAnnotationDb().then(loadAllAnnotationsFromDb).catch(() => {});
 renderList();
 
+// --- Google Auth & Drive ---
+
+const GOOGLE_CLIENT_ID = '514333808352-p9433pdp4dcd85u4ctoh1cfdibj6jsec.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_APP_FOLDER_NAME = 'PhiloScore';
+
+let googleAccessToken = null;
+let googleTokenExpiry = 0;
+let googleTokenClient = null;
+let driveAppFolderId = null;
+let driveMetadataFileId = null;
+
+const loginButton = document.getElementById('loginButton');
+const logoutButton = document.getElementById('logoutButton');
+const driveStatus = document.getElementById('driveStatus');
+
+function isSignedIn() {
+  return Boolean(googleAccessToken && Date.now() < googleTokenExpiry);
+}
+
+function renderAuthUI(statusText) {
+  if (isSignedIn()) {
+    loginButton.hidden = true;
+    logoutButton.hidden = false;
+    driveStatus.textContent = statusText ?? 'Drive同期済み';
+  } else {
+    loginButton.hidden = false;
+    logoutButton.hidden = true;
+    driveStatus.textContent = '';
+  }
+}
+
+function handleTokenResponse(response) {
+  if (response.error) {
+    console.error('Auth error:', response.error);
+    return;
+  }
+  googleAccessToken = response.access_token;
+  googleTokenExpiry = Date.now() + (response.expires_in - 60) * 1000;
+  renderAuthUI('読み込み中…');
+  loadFromDrive();
+}
+
+function initGoogleAuth() {
+  if (!window.google?.accounts?.oauth2) {
+    return;
+  }
+  googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: handleTokenResponse,
+  });
+  bindTap(loginButton, () => googleTokenClient.requestAccessToken());
+  bindTap(logoutButton, () => {
+    google.accounts.oauth2.revoke(googleAccessToken, () => {});
+    googleAccessToken = null;
+    googleTokenExpiry = 0;
+    driveAppFolderId = null;
+    driveMetadataFileId = null;
+    renderAuthUI();
+  });
+}
+
+async function driveApiFetch(method, path, options = {}) {
+  if (!googleAccessToken) throw new Error('Not signed in');
+  const res = await fetch(`https://www.googleapis.com${path}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${googleAccessToken}`,
+      ...options.headers,
+    },
+    body: options.body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Drive API ${res.status}: ${text}`);
+  }
+  return res;
+}
+
+async function getOrCreateDriveAppFolder() {
+  if (driveAppFolderId) return driveAppFolderId;
+
+  const q = encodeURIComponent(`name='${DRIVE_APP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const res = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`);
+  const data = await res.json();
+
+  if (data.files?.length > 0) {
+    driveAppFolderId = data.files[0].id;
+    return driveAppFolderId;
+  }
+
+  const createRes = await driveApiFetch('POST', '/drive/v3/files', {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: DRIVE_APP_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
+  });
+  const createData = await createRes.json();
+  driveAppFolderId = createData.id;
+  return driveAppFolderId;
+}
+
+async function uploadPdfToDrive(item) {
+  if (!isSignedIn() || !item.file) return;
+  try {
+    const folderId = await getOrCreateDriveAppFolder();
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: item.file.name, parents: [folderId] })], { type: 'application/json' }));
+    form.append('file', item.file);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${googleAccessToken}` },
+      body: form,
+    });
+    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+    const data = await res.json();
+    item.driveFileId = data.id;
+    await saveLibraryMetadata();
+  } catch (err) {
+    console.error('Drive upload failed:', err);
+  }
+}
+
+async function saveLibraryMetadata() {
+  if (!isSignedIn()) return;
+  try {
+    const folderId = await getOrCreateDriveAppFolder();
+    const payload = JSON.stringify({
+      version: 1,
+      savedAt: new Date().toISOString(),
+      items: library.map(item => ({
+        id: item.id,
+        title: item.title,
+        composer: item.composer || '',
+        type: item.type,
+        folderIds: item.folderIds || [item.folderId || 'inbox'],
+        driveFileId: item.driveFileId || null,
+        fileName: item.file?.name || `${item.title}.pdf`,
+        fileLastModified: item.file?.lastModified || 0,
+      })),
+    });
+    const blob = new Blob([payload], { type: 'application/json' });
+
+    if (driveMetadataFileId) {
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveMetadataFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: blob,
+      });
+      return;
+    }
+
+    const q = encodeURIComponent(`name='_library.json' and '${folderId}' in parents and trashed=false`);
+    const searchRes = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)`);
+    const searchData = await searchRes.json();
+
+    if (searchData.files?.length > 0) {
+      driveMetadataFileId = searchData.files[0].id;
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveMetadataFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+        body: blob,
+      });
+    } else {
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify({ name: '_library.json', parents: [folderId] })], { type: 'application/json' }));
+      form.append('file', blob);
+      const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${googleAccessToken}` },
+        body: form,
+      });
+      const createData = await createRes.json();
+      driveMetadataFileId = createData.id;
+    }
+  } catch (err) {
+    console.error('Save metadata failed:', err);
+  }
+}
+
+async function loadFromDrive() {
+  if (!isSignedIn()) return;
+  try {
+    renderAuthUI('読み込み中…');
+    const folderId = await getOrCreateDriveAppFolder();
+
+    const q = encodeURIComponent(`name='_library.json' and '${folderId}' in parents and trashed=false`);
+    const searchRes = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)`);
+    const searchData = await searchRes.json();
+
+    if (!searchData.files?.length) {
+      renderAuthUI('データなし');
+      return;
+    }
+
+    driveMetadataFileId = searchData.files[0].id;
+    const metaRes = await driveApiFetch('GET', `/drive/v3/files/${driveMetadataFileId}?alt=media`);
+    const meta = await metaRes.json();
+
+    if (!meta.items?.length) {
+      renderAuthUI('データなし');
+      return;
+    }
+
+    for (const saved of meta.items) {
+      if (!saved.driveFileId) continue;
+      if (library.find(i => i.id === saved.id)) continue;
+
+      try {
+        const fileRes = await driveApiFetch('GET', `/drive/v3/files/${saved.driveFileId}?alt=media`);
+        const blob = await fileRes.blob();
+        const file = new File([blob], saved.fileName || `${saved.title}.pdf`, { type: blob.type || 'application/pdf', lastModified: saved.fileLastModified || 0 });
+
+        library.push({
+          id: saved.id,
+          title: saved.title,
+          composer: saved.composer || '',
+          type: saved.type || 'pdf',
+          file,
+          url: URL.createObjectURL(file),
+          lastPage: 1,
+          folderIds: saved.folderIds || ['inbox'],
+          folderId: (saved.folderIds || ['inbox'])[0],
+          driveFileId: saved.driveFileId,
+        });
+      } catch (err) {
+        console.error(`Failed to load "${saved.title}":`, err);
+      }
+    }
+
+    renderSidebar();
+    renderList();
+    renderAuthUI(`同期済み（${library.length}件）`);
+  } catch (err) {
+    console.error('Load from Drive failed:', err);
+    renderAuthUI('同期失敗');
+  }
+}
+
+window.addEventListener('load', () => {
+  initGoogleAuth();
+});
+
 (function preloadSymbolImages() {
   const svgEntries = [['circle', '#d32f2f']];
   svgEntries.forEach(([type, color]) => getOrCreateSymbolImage(type, color));

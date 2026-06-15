@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap" rel="stylesheet" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
       :root {
         --bg: #f3f3f5;
@@ -133,6 +134,41 @@
 
       .privacy-footer a:hover {
         text-decoration: underline;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .login-button {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--text);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .logout-button {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--sub);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .drive-status {
+        font-size: 12px;
+        color: var(--sub);
+        white-space: nowrap;
       }
 
       .title {
@@ -1637,7 +1673,12 @@
     <main class="app">
       <div class="header">
         <h1 class="title">ライブラリ</h1>
-        <label id="headerAddButton" class="add-button" for="fileInput">+ 追加</label>
+        <div class="header-actions">
+          <span id="driveStatus" class="drive-status"></span>
+          <button id="loginButton" class="login-button" type="button">Googleでログイン</button>
+          <button id="logoutButton" class="logout-button" type="button" hidden>ログアウト</button>
+          <label id="headerAddButton" class="add-button" for="fileInput">+ 追加</label>
+        </div>
       </div>
 
       <input id="fileInput" class="file-input" type="file" accept="application/pdf,image/*" />
@@ -1884,6 +1925,6 @@
       </div>
     </section>
 
-    <script src="script.js?v=20260615-04" defer></script>
+    <script src="script.js?v=20260615-05" defer></script>
   </body>
 </html>
