@@ -90,6 +90,7 @@ const toolBowingButton = document.getElementById('toolBowingButton');
 const toolTextButton = document.getElementById('toolTextButton');
 const toolRedCircleButton = document.getElementById('toolRedCircleButton');
 const clearAnnotationButton = document.getElementById('clearAnnotationButton');
+const exportAnnotatedPdfButton = document.getElementById('exportAnnotatedPdfButton');
 const zoomOutButton = document.getElementById('zoomOutButton');
 const zoomInButton = document.getElementById('zoomInButton');
 const zoomResetButton = document.getElementById('zoomResetButton');
@@ -1480,7 +1481,10 @@ function persistCurrentAnnotation() {
   const key = getAnnotationKey();
   if (!key) return;
   const data = annotationStrokes.get(key);
-  if (data) saveAnnotationOpsToDb(key, data);
+  if (data) {
+    saveAnnotationOpsToDb(key, data);
+    scheduleDriveAnnotationSync();
+  }
 }
 
 function getCanvasPoint(event, canvas) {
@@ -3155,6 +3159,78 @@ function clearCurrentAnnotation() {
   }
 }
 
+async function exportAnnotatedPdf() {
+  if (!activeItem) return;
+  if (!window.PDFLib) {
+    alert('PDFライブラリが読み込まれていません。ページを再読み込みして再試行してください。');
+    return;
+  }
+  if (exportAnnotatedPdfButton) exportAnnotatedPdfButton.disabled = true;
+  try {
+    const pdfDoc = await PDFLib.PDFDocument.create();
+
+    if (activeItem.type === 'pdf') {
+      const pdf = await getPdfDocument(activeItem);
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const container = document.createElement('div');
+        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+        document.body.appendChild(container);
+        try {
+          const canvas = await renderPdfPageToCanvas(pdf, pageNum, container, 2.0);
+          const pageData = annotationStrokes.get(`${activeItem.id}:${pageNum}`);
+          if (pageData && pageData.ops.length > 0) {
+            replayAnnotationOps(canvas.getContext('2d'), canvas, pageData.ops);
+          }
+          const pngBytes = await new Promise((resolve) => {
+            canvas.toBlob(async (blob) => resolve(new Uint8Array(await blob.arrayBuffer())), 'image/png');
+          });
+          const img = await pdfDoc.embedPng(pngBytes);
+          const { width, height } = img.scale(0.5);
+          const page = pdfDoc.addPage([width, height]);
+          page.drawImage(img, { x: 0, y: 0, width, height });
+        } finally {
+          document.body.removeChild(container);
+        }
+      }
+    } else {
+      const imgEl = new Image();
+      await new Promise((resolve) => { imgEl.onload = resolve; imgEl.src = activeItem.url; });
+      const canvas = document.createElement('canvas');
+      canvas.width = imgEl.naturalWidth;
+      canvas.height = imgEl.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgEl, 0, 0);
+      const pageData = annotationStrokes.get(`${activeItem.id}:1`);
+      if (pageData && pageData.ops.length > 0) {
+        replayAnnotationOps(ctx, canvas, pageData.ops);
+      }
+      const pngBytes = await new Promise((resolve) => {
+        canvas.toBlob(async (blob) => resolve(new Uint8Array(await blob.arrayBuffer())), 'image/png');
+      });
+      const img = await pdfDoc.embedPng(pngBytes);
+      const { width, height } = img.scale(1);
+      const page = pdfDoc.addPage([width, height]);
+      page.drawImage(img, { x: 0, y: 0, width, height });
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeItem.title}_注釈付き.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (err) {
+    console.error('Export failed:', err);
+    alert(`エクスポートに失敗しました: ${err.message}`);
+  } finally {
+    if (exportAnnotatedPdfButton) exportAnnotatedPdfButton.disabled = false;
+  }
+}
+
 function updatePreviewCenterPage() {
   if (!activeItem || activeItem.type !== 'pdf') {
     return;
@@ -3755,6 +3831,7 @@ bindTap(readerTabAddButton, openLibraryHomeFromTabs);
 bindTap(focusModeExitButton, toggleReaderFullscreen);
 bindTap(focusModeCloseButton, closeReader);
 bindTap(clearAnnotationButton, clearCurrentAnnotation);
+bindTap(exportAnnotatedPdfButton, exportAnnotatedPdf);
 bindTap(document.getElementById('stampSizeDecButton'), () => adjustStampSize(-1));
 bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1));
 bindTap(toolRedPenButton, () => setActiveTool('redPen'));
@@ -4038,6 +4115,8 @@ let googleTokenExpiry = 0;
 let googleTokenClient = null;
 let driveAppFolderId = null;
 let driveMetadataFileId = null;
+let driveAnnotationFileId = null;
+let driveAnnotationSyncTimer = null;
 
 const loginButton = document.getElementById('loginButton');
 const logoutButton = document.getElementById('logoutButton');
@@ -4086,6 +4165,7 @@ function initGoogleAuth() {
     googleTokenExpiry = 0;
     driveAppFolderId = null;
     driveMetadataFileId = null;
+    driveAnnotationFileId = null;
     renderAuthUI();
   });
 }
@@ -4257,12 +4337,87 @@ async function loadFromDrive() {
       }
     }
 
+    await loadAnnotationsFromDrive(folderId);
     renderSidebar();
     renderList();
     renderAuthUI(`同期済み（${library.length}件）`);
   } catch (err) {
     console.error('Load from Drive failed:', err);
     renderAuthUI('同期失敗');
+  }
+}
+
+function scheduleDriveAnnotationSync() {
+  if (!isSignedIn()) return;
+  if (driveAnnotationSyncTimer) clearTimeout(driveAnnotationSyncTimer);
+  driveAnnotationSyncTimer = setTimeout(() => {
+    saveAnnotationsToDrive().catch((err) => console.error('Annotation Drive sync failed:', err));
+  }, 5000);
+}
+
+async function saveAnnotationsToDrive() {
+  if (!isSignedIn()) return;
+  const folderId = await getOrCreateDriveAppFolder();
+  const payload = JSON.stringify({
+    version: 1,
+    savedAt: new Date().toISOString(),
+    annotations: Object.fromEntries(annotationStrokes),
+  });
+  const blob = new Blob([payload], { type: 'application/json' });
+
+  const patch = async (fileId) => {
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+      body: blob,
+    });
+  };
+
+  if (driveAnnotationFileId) {
+    await patch(driveAnnotationFileId);
+    return;
+  }
+
+  const q = encodeURIComponent(`name='_annotations.json' and '${folderId}' in parents and trashed=false`);
+  const searchRes = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)`);
+  const searchData = await searchRes.json();
+
+  if (searchData.files?.length > 0) {
+    driveAnnotationFileId = searchData.files[0].id;
+    await patch(driveAnnotationFileId);
+  } else {
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: '_annotations.json', parents: [folderId] })], { type: 'application/json' }));
+    form.append('file', blob);
+    const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${googleAccessToken}` },
+      body: form,
+    });
+    const createData = await createRes.json();
+    driveAnnotationFileId = createData.id;
+  }
+}
+
+async function loadAnnotationsFromDrive(folderId) {
+  try {
+    const q = encodeURIComponent(`name='_annotations.json' and '${folderId}' in parents and trashed=false`);
+    const searchRes = await driveApiFetch('GET', `/drive/v3/files?q=${q}&fields=files(id)`);
+    const searchData = await searchRes.json();
+    if (!searchData.files?.length) return;
+
+    driveAnnotationFileId = searchData.files[0].id;
+    const res = await driveApiFetch('GET', `/drive/v3/files/${driveAnnotationFileId}?alt=media`);
+    const data = await res.json();
+
+    if (data.annotations) {
+      for (const [key, value] of Object.entries(data.annotations)) {
+        annotationStrokes.set(key, value);
+        saveAnnotationOpsToDb(key, value);
+      }
+    }
+  } catch (err) {
+    console.error('Load annotations from Drive failed:', err);
   }
 }
 
