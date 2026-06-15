@@ -482,6 +482,7 @@ function moveItemToStatus(item, targetStatus) {
   openLibraryMenuId = null;
   renderSidebar();
   renderList();
+  saveLibraryMetadata().catch((err) => console.error('Drive metadata save failed:', err));
 }
 
 function openEditSheet(item) {
@@ -3759,6 +3760,9 @@ function addFile(file) {
       activeTypeFilter = 'all';
     }
     renderList();
+
+    // Drive同期（未ログインの場合は何もしない）
+    uploadPdfToDrive(item).catch((err) => console.error('Drive upload failed:', err));
   } catch (error) {
     console.error('Failed to add file.', error);
     const reason = error && error.message ? `\n(${error.message})` : '';
