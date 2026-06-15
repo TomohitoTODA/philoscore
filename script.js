@@ -3731,7 +3731,10 @@ function addFile(file) {
 
     stage = 'prepare-item';
     const title = createUniqueLibraryTitle(baseTitle(file.name));
-    const defaultFolderId = getDefaultTargetFolderId();
+    // Use effective folder (respects current category + sub-filter state)
+    const rawTarget = getEffectiveFolderId();
+    const targetFolderId = (rawTarget === 'all' || rawTarget === 'favorites' || !getFolderById(rawTarget))
+      ? 'inbox' : rawTarget;
 
     const item = {
       id: createLocalId(),
@@ -3741,18 +3744,20 @@ function addFile(file) {
       file,
       url: URL.createObjectURL(file),
       lastPage: 1,
-      folderIds: [defaultFolderId],
-      folderId: defaultFolderId,
+      folderIds: [targetFolderId],
+      folderId: targetFolderId,
     };
 
     stage = 'create-object-url';
     library.unshift(item);
 
-    stage = 'render-sidebar';
-    activeFolderId = defaultFolderId;
-    renderSidebar();
-
     stage = 'render-list';
+    // お気に入りタブ中はアイテムが見えないので全体表示へ
+    if (activeFolderId === 'favorites') {
+      activeFolderId = 'all';
+      activeStatusFilter = 'all';
+      activeTypeFilter = 'all';
+    }
     renderList();
   } catch (error) {
     console.error('Failed to add file.', error);
