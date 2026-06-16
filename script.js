@@ -2393,11 +2393,14 @@ function replayStampOp(ctx, canvas, op) {
 
 function replayAnnotationOps(ctx, canvas, ops) {
   ctx.save();
-  for (const op of ops) {
-    if (op.op === 'stroke') replayStrokeOp(ctx, canvas, op);
-    else if (op.op === 'stamp') replayStampOp(ctx, canvas, op);
+  try {
+    for (const op of ops) {
+      if (op.op === 'stroke') replayStrokeOp(ctx, canvas, op);
+      else if (op.op === 'stamp') replayStampOp(ctx, canvas, op);
+    }
+  } finally {
+    ctx.restore();
   }
-  ctx.restore();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3177,6 +3180,7 @@ function undoLastAnnotation() {
     if (data.ops.length > 0) {
       replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
     }
+    annotationContext.globalCompositeOperation = 'source-over';
   }
 
   saveAnnotationOpsToDb(key, data);
@@ -3195,6 +3199,7 @@ function redoLastAnnotation() {
   if (annotationCanvas && annotationContext) {
     annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
     replayAnnotationOps(annotationContext, annotationCanvas, annotationStrokes.get(key).ops);
+    annotationContext.globalCompositeOperation = 'source-over';
   }
 
   saveAnnotationOpsToDb(key, annotationStrokes.get(key));
@@ -4023,22 +4028,34 @@ document.addEventListener('keydown', (event) => {
 
   }
 
-  if (reader.style.display === 'none' || reader.getAttribute('aria-hidden') === 'true') {
-    return;
-  }
+  const readerHidden = reader.style.display === 'none' || reader.getAttribute('aria-hidden') === 'true';
 
   if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
-    event.preventDefault();
-    undoLastAnnotation();
-    return;
+    const t = event.target;
+    const inTextField = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ||
+      (t instanceof HTMLElement && t.isContentEditable);
+    if (!inTextField) {
+      event.preventDefault();
+      if (!readerHidden) undoLastAnnotation();
+      return;
+    }
   }
 
   if (
     (event.ctrlKey || event.metaKey) && event.key === 'y' ||
     (event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'z'
   ) {
-    event.preventDefault();
-    redoLastAnnotation();
+    const t = event.target;
+    const inTextField = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ||
+      (t instanceof HTMLElement && t.isContentEditable);
+    if (!inTextField) {
+      event.preventDefault();
+      if (!readerHidden) redoLastAnnotation();
+      return;
+    }
+  }
+
+  if (readerHidden) {
     return;
   }
 
