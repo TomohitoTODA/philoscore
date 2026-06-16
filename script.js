@@ -537,7 +537,7 @@ function renderSubFilter() {
   });
   folderTabs.appendChild(statusGroup);
 
-  const hasTypeFilter = activeFolderId === 'orchestra' && activeStatusFilter !== 'all';
+  const hasTypeFilter = activeFolderId === 'orchestra';
   if (hasTypeFilter) {
     const typeGroup = document.createElement('div');
     typeGroup.className = 'sub-filter-group';
@@ -561,7 +561,7 @@ function renderSubFilter() {
     });
     folderTabs.appendChild(typeGroup);
   } else {
-    activeTypeFilter = 'all';
+    if (activeFolderId !== 'orchestra') activeTypeFilter = 'all';
   }
 }
 
@@ -954,6 +954,15 @@ function getVisibleLibraryItems() {
 
   if (activeFolderId === 'composer') {
     return library.filter((item) => item.composer && item.composer.trim() !== '');
+  }
+
+  // orchestra + 全て + パート譜/スコアフィルタ
+  if (activeFolderId === 'orchestra' && activeStatusFilter === 'all' && activeTypeFilter !== 'all') {
+    return library.filter(
+      (item) =>
+        itemMatchesFolderTree(item, 'orchestra') &&
+        getItemFolderIds(item).some((id) => id.endsWith(`-${activeTypeFilter}`)),
+    );
   }
 
   return library.filter((item) => itemMatchesFolderTree(item, effectiveId));
