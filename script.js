@@ -221,6 +221,8 @@ const COMPOSER_DB = [
   { name: 'Erich Wolfgang Korngold', ja: ['コルンゴルト', 'こるんごると', 'korngold'] },
   { name: 'Igor Frolov', ja: ['イーゴリ・フロロフ', 'いーごりふろろふ', 'frolov'] },
   { name: 'Heinrich Wilhelm Ernst', ja: ['エルンスト', 'えるんすと', 'ernst'] },
+  { name: 'Bedřich Smetana', ja: ['スメタナ', 'すめたな', 'smetana'] },
+  { name: 'Arnold Bax', ja: ['バックス', 'ばっくす', 'bax'] },
   { name: 'Toru Takemitsu', ja: ['武満徹', 'たけみつとおる', 'たけみつ', 'takemitsu'] },
   { name: 'Ikuma Dan', ja: ['団伊玖磨', 'だんいくま', 'dan ikuma'] },
   { name: 'Rentaro Taki', ja: ['滝廉太郎', 'たきれんたろう', 'taki'] },
@@ -4266,7 +4268,15 @@ function positionComposerSuggestions() {
   composerSuggestions.style.maxHeight = Math.min(240, Math.max(80, window.innerHeight - rect.bottom - 12)) + 'px';
 }
 
-editComposerInput.addEventListener('input', () => {
+let composerInputIsComposing = false;
+editComposerInput.addEventListener('compositionstart', () => { composerInputIsComposing = true; });
+editComposerInput.addEventListener('compositionend', () => {
+  composerInputIsComposing = false;
+  // IME確定後にサジェストを更新
+  showComposerSuggestions();
+});
+
+function showComposerSuggestions() {
   const results = searchComposers(editComposerInput.value);
   if (results.length === 0) {
     composerSuggestions.hidden = true;
@@ -4290,6 +4300,11 @@ editComposerInput.addEventListener('input', () => {
   });
   positionComposerSuggestions();
   composerSuggestions.hidden = false;
+}
+
+editComposerInput.addEventListener('input', () => {
+  if (composerInputIsComposing) return; // IME変換中はスキップ
+  showComposerSuggestions();
 });
 
 editComposerInput.addEventListener('blur', () => {
@@ -4422,6 +4437,7 @@ document.addEventListener('keydown', (event) => {
       target instanceof HTMLInputElement &&
       (target === editTitleInput || target === editComposerInput)
     ) {
+      if (event.isComposing) return; // IME確定のEnterは保存しない
       event.preventDefault();
       saveEditSheet();
       return;
