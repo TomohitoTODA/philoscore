@@ -544,6 +544,7 @@ function applyLibraryItemMetadata(item, nextTitle, nextComposer) {
     readerTitle.textContent = `楽譜リーダー: ${item.title}`;
   }
 
+  saveItemMetaToDb(item);
   renderReaderTabs();
   renderList();
 }
@@ -700,6 +701,7 @@ function setItemFolderIds(item, folderIds) {
   const nextIds = normalized.length > 0 ? normalized : ['inbox'];
   item.folderIds = nextIds;
   item.folderId = nextIds[0];
+  saveItemMetaToDb(item);
 }
 
 function itemMatchesFolderTree(item, folderId) {
@@ -1420,6 +1422,7 @@ function deleteLibraryItem(itemId) {
     activeItem = null;
   }
 
+  deleteItemFromDb(removedItem.id);
   cleanupLibraryItem(removedItem);
   openLibraryMenuId = null;
   renderReaderTabs();
@@ -2255,7 +2258,95 @@ function clampZoom(value) {
   return Math.min(zoomConfig.max, Math.max(zoomConfig.min, value));
 }
 
-// ── IndexedDB ────────────────────────────────────────────────────────────────
+// ── Library IndexedDB (local persistence without Drive login) ─────────────────
+
+let libraryDb = null;
+
+function openLibraryDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('gakufu-library', 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('library')) db.createObjectStore('library');
+      if (!db.objectStoreNames.contains('pdfs')) db.createObjectStore('pdfs');
+    };
+    req.onsuccess = (e) => { libraryDb = e.target.result; resolve(); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function saveItemMetaToDb(item) {
+  if (!libraryDb || !item) return;
+  const meta = {
+    id: item.id,
+    title: item.title,
+    composer: item.composer || '',
+    type: item.type,
+    folderIds: item.folderIds || [item.folderId || 'inbox'],
+    folderId: item.folderId || (item.folderIds || ['inbox'])[0],
+    lastPage: item.lastPage || 1,
+    driveFileId: item.driveFileId || null,
+    fileName: item.file?.name || `${item.title}.pdf`,
+    fileLastModified: item.file?.lastModified || 0,
+  };
+  libraryDb.transaction('library', 'readwrite').objectStore('library').put(meta, item.id);
+}
+
+function savePdfToDb(itemId, file) {
+  if (!libraryDb || !file) return;
+  file.arrayBuffer().then((buffer) => {
+    libraryDb.transaction('pdfs', 'readwrite').objectStore('pdfs').put(buffer, itemId);
+  }).catch((err) => console.warn('PDF save to local DB failed:', err));
+}
+
+function deleteItemFromDb(itemId) {
+  if (!libraryDb) return;
+  const tx = libraryDb.transaction(['library', 'pdfs'], 'readwrite');
+  tx.objectStore('library').delete(itemId);
+  tx.objectStore('pdfs').delete(itemId);
+}
+
+async function loadLibraryFromDb() {
+  if (!libraryDb) return;
+  const metas = await new Promise((resolve) => {
+    const items = [];
+    const tx = libraryDb.transaction('library', 'readonly');
+    tx.objectStore('library').openCursor().onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) { items.push(cursor.value); cursor.continue(); }
+    };
+    tx.oncomplete = () => resolve(items);
+    tx.onerror = () => resolve([]);
+  });
+
+  await Promise.all(metas.map((meta) => new Promise((resolve) => {
+    const req = libraryDb.transaction('pdfs', 'readonly').objectStore('pdfs').get(meta.id);
+    req.onsuccess = () => {
+      const buffer = req.result;
+      if (!buffer) { resolve(); return; }
+      const file = new File([buffer], meta.fileName || `${meta.title}.pdf`, {
+        type: 'application/pdf',
+        lastModified: meta.fileLastModified || 0,
+      });
+      library.push({
+        id: meta.id,
+        title: meta.title,
+        composer: meta.composer || '',
+        type: meta.type || 'pdf',
+        file,
+        url: URL.createObjectURL(file),
+        lastPage: meta.lastPage || 1,
+        folderIds: meta.folderIds || ['inbox'],
+        folderId: meta.folderId || (meta.folderIds || ['inbox'])[0],
+        driveFileId: meta.driveFileId || null,
+      });
+      resolve();
+    };
+    req.onerror = () => resolve();
+  })));
+}
+
+// ── IndexedDB (annotations) ───────────────────────────────────────────────────
 
 function openAnnotationDb() {
   return new Promise((resolve, reject) => {
@@ -3821,6 +3912,8 @@ function addFile(file) {
 
     stage = 'create-object-url';
     library.unshift(item);
+    saveItemMetaToDb(item);
+    savePdfToDb(item.id, file);
 
     stage = 'render-list';
     // お気に入りタブ中はアイテムが見えないので全体表示へ
@@ -3861,6 +3954,7 @@ async function moveReaderPage(offset) {
   const group = readerState.viewGroups[readerState.page - 1] || [1];
   previewState.page = group[0];
   activeItem.lastPage = group[0];
+  saveItemMetaToDb(activeItem);
   await renderReaderPage();
 
   requestAnimationFrame(() => {
@@ -4207,10 +4301,19 @@ function bindSingleToggle(button, handler) {
 bindSingleToggle(metronomeWindowToggle, toggleMetronomeWindow);
 bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
 
-openAnnotationDb().then(loadAllAnnotationsFromDb).catch((err) => {
-  console.warn('IndexedDB unavailable (private browsing?), annotations will not be persisted locally:', err);
-});
-renderList();
+(async () => {
+  try {
+    await openLibraryDb();
+    await loadLibraryFromDb();
+  } catch (err) {
+    console.warn('Library DB unavailable:', err);
+  }
+  openAnnotationDb().then(loadAllAnnotationsFromDb).catch((err) => {
+    console.warn('IndexedDB unavailable (private browsing?), annotations will not be persisted locally:', err);
+  });
+  renderSidebar();
+  renderList();
+})();
 
 // --- Google Auth & Drive ---
 
@@ -4428,7 +4531,7 @@ async function loadFromDrive() {
         const blob = await fileRes.blob();
         const file = new File([blob], saved.fileName || `${saved.title}.pdf`, { type: blob.type || 'application/pdf', lastModified: saved.fileLastModified || 0 });
 
-        library.push({
+        const newItem = {
           id: saved.id,
           title: saved.title,
           composer: saved.composer || '',
@@ -4439,7 +4542,10 @@ async function loadFromDrive() {
           folderIds: saved.folderIds || ['inbox'],
           folderId: (saved.folderIds || ['inbox'])[0],
           driveFileId: saved.driveFileId,
-        });
+        };
+        library.push(newItem);
+        saveItemMetaToDb(newItem);
+        savePdfToDb(newItem.id, file);
       } catch (err) {
         console.error(`Failed to load "${saved.title}":`, err);
       }
