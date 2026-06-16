@@ -995,24 +995,18 @@
         box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.06);
       }
 
-      .composer-field-wrap {
-        position: relative;
-      }
-
       .composer-suggestions {
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: calc(100% + 4px);
+        position: fixed;
         background: rgba(255, 255, 255, 0.98);
         border: 1px solid var(--line);
         border-radius: 14px;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
         padding: 6px;
         display: flex;
         flex-direction: column;
         gap: 2px;
-        z-index: 20;
+        z-index: 1000;
+        overflow-y: auto;
       }
 
       .composer-suggestions[hidden] {
@@ -2105,6 +2099,6 @@
     </section>
 
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260616-11" defer></script>
+    <script src="script.js?v=20260616-12" defer></script>
   </body>
 </html>

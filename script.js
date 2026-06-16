@@ -214,6 +214,7 @@ const COMPOSER_DB = [
   { name: 'Philip Glass', ja: ['フィリップ・グラス', 'グラス', 'philip glass', 'glass'] },
   { name: 'John Adams', ja: ['ジョン・アダムズ', 'アダムズ', 'john adams', 'adams'] },
   { name: 'Leoš Janáček', ja: ['ヤナーチェク', 'やなーちぇく', 'janacek'] },
+  { name: 'Eugène-Auguste Ysaÿe', ja: ['イザイ', 'いざい', 'ysaye', 'ysaÿe'] },
   { name: 'Toru Takemitsu', ja: ['武満徹', 'たけみつとおる', 'たけみつ', 'takemitsu'] },
   { name: 'Ikuma Dan', ja: ['団伊玖磨', 'だんいくま', 'dan ikuma'] },
   { name: 'Rentaro Taki', ja: ['滝廉太郎', 'たきれんたろう', 'taki'] },
@@ -1277,6 +1278,7 @@ function openMoveFolderSheet(item) {
     renderSidebar();
     renderList();
     closeMoveFolderSheet();
+    saveLibraryMetadata().catch((err) => console.error('Drive metadata save failed:', err));
   }, {
     title: 'フォルダを変更',
     selectedIds: getItemFolderIds(item),
@@ -2445,23 +2447,27 @@ async function loadLibraryFromDb() {
     const req = libraryDb.transaction('pdfs', 'readonly').objectStore('pdfs').get(meta.id);
     req.onsuccess = () => {
       const buffer = req.result;
-      if (!buffer) { resolve(); return; }
-      const file = new File([buffer], meta.fileName || `${meta.title}.pdf`, {
-        type: 'application/pdf',
-        lastModified: meta.fileLastModified || 0,
-      });
-      library.push({
+      const base = {
         id: meta.id,
         title: meta.title,
         composer: meta.composer || '',
         type: meta.type || 'pdf',
-        file,
-        url: URL.createObjectURL(file),
         lastPage: meta.lastPage || 1,
         folderIds: meta.folderIds || ['inbox'],
         folderId: meta.folderId || (meta.folderIds || ['inbox'])[0],
         driveFileId: meta.driveFileId || null,
-      });
+      };
+      if (!buffer) {
+        // PDF not in local storage — add as stub so loadFromDrive fills the file
+        // without overwriting the locally-stored folder assignment.
+        library.push({ ...base, file: null, url: null });
+      } else {
+        const file = new File([buffer], meta.fileName || `${meta.title}.pdf`, {
+          type: 'application/pdf',
+          lastModified: meta.fileLastModified || 0,
+        });
+        library.push({ ...base, file, url: URL.createObjectURL(file) });
+      }
       resolve();
     };
     req.onerror = () => resolve();
@@ -4170,6 +4176,23 @@ bindTap(closePreviewButton, closePreviewSheet);
 bindTap(closeEditButton, closeEditSheet);
 bindTap(saveEditButton, saveEditSheet);
 
+function positionComposerSuggestions() {
+  const rect = editComposerInput.getBoundingClientRect();
+  composerSuggestions.style.left = rect.left + 'px';
+  composerSuggestions.style.width = rect.width + 'px';
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const spaceAbove = rect.top - 8;
+  if (spaceBelow >= 150 || spaceBelow >= spaceAbove) {
+    const maxH = Math.min(280, Math.max(80, spaceBelow));
+    composerSuggestions.style.top = (rect.bottom + 4) + 'px';
+    composerSuggestions.style.maxHeight = maxH + 'px';
+  } else {
+    const maxH = Math.min(280, Math.max(80, spaceAbove));
+    composerSuggestions.style.top = (rect.top - 4 - maxH) + 'px';
+    composerSuggestions.style.maxHeight = maxH + 'px';
+  }
+}
+
 editComposerInput.addEventListener('input', () => {
   const results = searchComposers(editComposerInput.value);
   if (results.length === 0) {
@@ -4192,6 +4215,7 @@ editComposerInput.addEventListener('input', () => {
     });
     composerSuggestions.appendChild(btn);
   });
+  positionComposerSuggestions();
   composerSuggestions.hidden = false;
 });
 
@@ -4736,7 +4760,28 @@ async function loadFromDrive() {
 
     for (const saved of meta.items) {
       if (!saved.driveFileId) continue;
-      if (library.find(i => i.id === saved.id)) continue;
+      const existingItem = library.find(i => i.id === saved.id);
+
+      if (existingItem) {
+        // Item is already in local library. Only fetch its file from Drive if
+        // the local PDF is missing (e.g. the item predates the local-DB feature).
+        // We intentionally keep the local folderIds — they are the source of truth.
+        if (!existingItem.file) {
+          try {
+            const fileRes = await driveApiFetch('GET', `/drive/v3/files/${saved.driveFileId}?alt=media`);
+            const blob = await fileRes.blob();
+            const file = new File([blob], saved.fileName || `${saved.title}.pdf`, { type: blob.type || 'application/pdf', lastModified: saved.fileLastModified || 0 });
+            existingItem.file = file;
+            existingItem.url = URL.createObjectURL(file);
+            if (!existingItem.driveFileId) existingItem.driveFileId = saved.driveFileId;
+            saveItemMetaToDb(existingItem);
+            savePdfToDb(existingItem.id, file);
+          } catch (err) {
+            console.error(`Failed to restore file for "${existingItem.title}":`, err);
+          }
+        }
+        continue;
+      }
 
       try {
         const fileRes = await driveApiFetch('GET', `/drive/v3/files/${saved.driveFileId}?alt=media`);
