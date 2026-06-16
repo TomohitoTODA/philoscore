@@ -1002,7 +1002,7 @@ function setActiveFolder(folderId) {
   }
   if (folderId !== activeFolderId) {
     activeStatusFilter = 'all';
-    activeTypeFilter = 'all';
+    activeTypeFilter = folderId === 'orchestra' ? 'part' : 'all';
     activeComposerFilter = null;
   }
   activeFolderId = folderId;
@@ -1033,8 +1033,27 @@ function toggleFavoriteItem(itemId, forceState = null) {
     favoriteItemIds.splice(index, 1);
   }
 
+  saveFavoritesToStorage();
   renderSidebar();
   renderList();
+}
+
+function saveFavoritesToStorage() {
+  try { localStorage.setItem('gakufu-favorites', JSON.stringify(favoriteItemIds)); } catch {}
+  saveLibraryMetadata().catch((err) => console.error('Drive favorites save failed:', err));
+}
+
+function loadFavoritesFromStorage() {
+  try {
+    const raw = localStorage.getItem('gakufu-favorites');
+    if (raw) {
+      const ids = JSON.parse(raw);
+      if (Array.isArray(ids)) {
+        favoriteItemIds.length = 0;
+        ids.forEach((id) => favoriteItemIds.push(id));
+      }
+    }
+  } catch {}
 }
 
 function renameFolderNode(folderId, nextName) {
@@ -4597,6 +4616,7 @@ bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
   } catch (err) {
     console.warn('Library DB unavailable:', err);
   }
+  loadFavoritesFromStorage();
   openAnnotationDb().then(loadAllAnnotationsFromDb).catch((err) => {
     console.warn('IndexedDB unavailable (private browsing?), annotations will not be persisted locally:', err);
   });
@@ -4737,6 +4757,7 @@ async function saveLibraryMetadata() {
     const payload = JSON.stringify({
       version: 1,
       savedAt: new Date().toISOString(),
+      favoriteIds: favoriteItemIds.slice(),
       items: library.map(item => ({
         id: item.id,
         title: item.title,
@@ -4809,6 +4830,13 @@ async function loadFromDrive() {
     if (!meta.items?.length) {
       renderAuthUI('データなし');
       return;
+    }
+
+    // Restore favorites from Drive (authoritative source)
+    if (Array.isArray(meta.favoriteIds)) {
+      favoriteItemIds.length = 0;
+      meta.favoriteIds.forEach((id) => favoriteItemIds.push(id));
+      try { localStorage.setItem('gakufu-favorites', JSON.stringify(favoriteItemIds)); } catch {}
     }
 
     for (const saved of meta.items) {
