@@ -128,6 +128,7 @@ const tunerThresholdValue = document.getElementById('tunerThresholdValue');
 
 const library = [];
 const pdfCache = new Map();
+const pdfThumbCache = new Map(); // item.id → data URL
 const annotationStrokes = new Map(); // key → { version, ops: [] }
 const annotationRedoStacks = new Map(); // key → op[] (undoで取り除いたop)
 let currentStroke = null;
@@ -3670,6 +3671,43 @@ function closeReader() {
   renderReaderTabs();
 }
 
+async function renderPdfThumbnail(item, thumbEl) {
+  if (pdfThumbCache.has(item.id)) {
+    const img = document.createElement('img');
+    img.src = pdfThumbCache.get(item.id);
+    img.alt = item.title;
+    thumbEl.innerHTML = '';
+    thumbEl.appendChild(img);
+    return;
+  }
+  try {
+    const lib = await ensurePdfJs();
+    let pdf = pdfCache.get(item.id);
+    if (!pdf) {
+      const buffer = await item.file.arrayBuffer();
+      pdf = await lib.getDocument({ data: buffer }).promise;
+      pdfCache.set(item.id, pdf);
+    }
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 0.22 });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    pdfThumbCache.set(item.id, dataUrl);
+    if (thumbEl.isConnected) {
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.alt = item.title;
+      thumbEl.innerHTML = '';
+      thumbEl.appendChild(img);
+    }
+  } catch {
+    // サムネイル生成失敗時は PDF マークのまま
+  }
+}
+
 function renderList() {
   if (isRenderingList) {
     return;
@@ -3704,6 +3742,7 @@ function renderList() {
       mark.className = 'pdf-mark';
       mark.textContent = 'PDF';
       thumb.appendChild(mark);
+      renderPdfThumbnail(item, thumb);
     }
 
     const meta = document.createElement('div');
