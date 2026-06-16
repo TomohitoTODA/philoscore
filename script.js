@@ -61,6 +61,7 @@ const closeEditButton = document.getElementById('closeEditButton');
 const editTitleInput = document.getElementById('editTitleInput');
 const editComposerInput = document.getElementById('editComposerInput');
 const saveEditButton = document.getElementById('saveEditButton');
+const composerSuggestions = document.getElementById('composerSuggestions');
 const moveFolderSheet = document.getElementById('moveFolderSheet');
 const moveFolderSheetTitle = document.getElementById('moveFolderSheetTitle');
 const closeMoveFolderButton = document.getElementById('closeMoveFolderButton');
@@ -150,9 +151,87 @@ const folders = [
   { id: 'solo', name: 'ソロ曲', kind: 'section', parentId: null, system: true },
   { id: 'solo-practice', name: '練習中の曲', kind: 'leaf', parentId: 'solo', system: true },
   { id: 'solo-past', name: '過去の曲', kind: 'leaf', parentId: 'solo', system: true },
-  { id: 'composer', name: '作曲家', kind: 'leaf', parentId: null, system: true },
+  { id: 'composer', name: '作曲家', kind: 'section', parentId: null, system: true },
 ];
 const favoriteItemIds = [];
+
+const COMPOSER_DB = [
+  { name: 'Johann Sebastian Bach', ja: ['バッハ', 'ばっは', 'bach'] },
+  { name: 'Georg Friedrich Handel', ja: ['ヘンデル', 'へんでる', 'handel'] },
+  { name: 'Antonio Vivaldi', ja: ['ヴィヴァルディ', 'ビバルディ', 'びばるでぃ', 'vivaldi'] },
+  { name: 'Henry Purcell', ja: ['パーセル', 'ぱーせる', 'purcell'] },
+  { name: 'Claudio Monteverdi', ja: ['モンテヴェルディ', 'もんてべるでぃ', 'monteverdi'] },
+  { name: 'Wolfgang Amadeus Mozart', ja: ['モーツァルト', 'もーつぁると', 'もーつあると', 'mozart'] },
+  { name: 'Ludwig van Beethoven', ja: ['ベートーヴェン', 'ベートーベン', 'べーとーべん', 'べと', 'beethoven'] },
+  { name: 'Franz Joseph Haydn', ja: ['ハイドン', 'はいどん', 'haydn'] },
+  { name: 'Luigi Boccherini', ja: ['ボッケリーニ', 'ぼっけりーに', 'boccherini'] },
+  { name: 'Muzio Clementi', ja: ['クレメンティ', 'くれめんてぃ', 'clementi'] },
+  { name: 'Franz Schubert', ja: ['シューベルト', 'しゅーべると', 'schubert'] },
+  { name: 'Robert Schumann', ja: ['シューマン', 'しゅーまん', 'schumann'] },
+  { name: 'Clara Schumann', ja: ['クララ・シューマン', 'くらら', 'clara schumann'] },
+  { name: 'Frédéric Chopin', ja: ['ショパン', 'しょぱん', 'chopin'] },
+  { name: 'Franz Liszt', ja: ['リスト', 'りすと', 'liszt'] },
+  { name: 'Felix Mendelssohn', ja: ['メンデルスゾーン', 'めんでるすぞーん', 'mendelssohn'] },
+  { name: 'Hector Berlioz', ja: ['ベルリオーズ', 'べるりおーず', 'berlioz'] },
+  { name: 'Johannes Brahms', ja: ['ブラームス', 'ぶらーむす', 'brahms'] },
+  { name: 'Anton Bruckner', ja: ['ブルックナー', 'ぶるっくなー', 'bruckner'] },
+  { name: 'Peter Ilyich Tchaikovsky', ja: ['チャイコフスキー', 'ちゃいこふすきー', 'ちゃい', 'tchaikovsky'] },
+  { name: 'Antonín Dvořák', ja: ['ドヴォルザーク', 'どぼるざーく', 'どぼ', 'dvorak'] },
+  { name: 'Richard Wagner', ja: ['ワーグナー', 'わーぐなー', 'wagner'] },
+  { name: 'Giuseppe Verdi', ja: ['ヴェルディ', 'べるでぃ', 'verdi'] },
+  { name: 'Giacomo Puccini', ja: ['プッチーニ', 'ぷっちーに', 'puccini'] },
+  { name: 'Edvard Grieg', ja: ['グリーグ', 'ぐりーぐ', 'grieg'] },
+  { name: 'Camille Saint-Saëns', ja: ['サン＝サーンス', 'サンサーンス', 'さんさんす', 'saint-saens'] },
+  { name: 'Gabriel Fauré', ja: ['フォーレ', 'ふぉーれ', 'faure'] },
+  { name: 'Georges Bizet', ja: ['ビゼー', 'びぜー', 'bizet'] },
+  { name: 'César Franck', ja: ['フランク', 'ふらんく', 'franck'] },
+  { name: 'Nikolai Rimsky-Korsakov', ja: ['リムスキー＝コルサコフ', 'リムスキーコルサコフ', 'りむすきー', 'rimsky-korsakov', 'rimsky'] },
+  { name: 'Modest Mussorgsky', ja: ['ムソルグスキー', 'むそるぐすきー', 'mussorgsky'] },
+  { name: 'Alexander Borodin', ja: ['ボロディン', 'ぼろでぃん', 'borodin'] },
+  { name: 'Mikhail Glinka', ja: ['グリンカ', 'ぐりんか', 'glinka'] },
+  { name: 'Gustav Mahler', ja: ['マーラー', 'まーらー', 'mahler'] },
+  { name: 'Richard Strauss', ja: ['リヒャルト・シュトラウス', 'シュトラウス', 'しゅとらうす', 'richard strauss', 'r.strauss'] },
+  { name: 'Claude Debussy', ja: ['ドビュッシー', 'どびゅっしー', 'どびゅ', 'debussy'] },
+  { name: 'Maurice Ravel', ja: ['ラヴェル', 'らべる', 'ravel'] },
+  { name: 'Jean Sibelius', ja: ['シベリウス', 'しべりうす', 'sibelius'] },
+  { name: 'Edward Elgar', ja: ['エルガー', 'えるがー', 'elgar'] },
+  { name: 'Sergei Rachmaninoff', ja: ['ラフマニノフ', 'らふまにのふ', 'らふ', 'rachmaninoff', 'rachmaninov'] },
+  { name: 'Alexander Scriabin', ja: ['スクリャービン', 'すくりゃーびん', 'scriabin'] },
+  { name: 'Sergei Prokofiev', ja: ['プロコフィエフ', 'ぷろこふぃえふ', 'プロコ', 'prokofiev'] },
+  { name: 'Dmitri Shostakovich', ja: ['ショスタコーヴィチ', 'しょすたこーびち', 'ショスタコ', 'しょすたこ', 'shostakovich'] },
+  { name: 'Igor Stravinsky', ja: ['ストラヴィンスキー', 'ストラビンスキー', 'すとらびんすきー', 'stravinsky'] },
+  { name: 'Béla Bartók', ja: ['バルトーク', 'ばるとーく', 'bartok'] },
+  { name: 'Zoltán Kodály', ja: ['コダーイ', 'こだーい', 'kodaly'] },
+  { name: 'Manuel de Falla', ja: ['ファリャ', 'ふぁりゃ', 'falla', 'de falla'] },
+  { name: 'Benjamin Britten', ja: ['ブリテン', 'ぶりてん', 'britten'] },
+  { name: 'Aaron Copland', ja: ['コープランド', 'こーぷらんど', 'copland'] },
+  { name: 'Carl Orff', ja: ['オルフ', 'おるふ', 'orff'] },
+  { name: 'Francis Poulenc', ja: ['プーランク', 'ぷーらんく', 'poulenc'] },
+  { name: 'Olivier Messiaen', ja: ['メシアン', 'めしあん', 'messiaen'] },
+  { name: 'György Ligeti', ja: ['リゲティ', 'りげてぃ', 'ligeti'] },
+  { name: 'Karlheinz Stockhausen', ja: ['シュトックハウゼン', 'しゅとっくはうぜん', 'stockhausen'] },
+  { name: 'Arvo Pärt', ja: ['アルヴォ・ペルト', 'ペルト', 'ぺると', 'part', 'pärt'] },
+  { name: 'Philip Glass', ja: ['フィリップ・グラス', 'グラス', 'philip glass', 'glass'] },
+  { name: 'John Adams', ja: ['ジョン・アダムズ', 'アダムズ', 'john adams', 'adams'] },
+  { name: 'Leoš Janáček', ja: ['ヤナーチェク', 'やなーちぇく', 'janacek'] },
+  { name: 'Toru Takemitsu', ja: ['武満徹', 'たけみつとおる', 'たけみつ', 'takemitsu'] },
+  { name: 'Ikuma Dan', ja: ['団伊玖磨', 'だんいくま', 'dan ikuma'] },
+  { name: 'Rentaro Taki', ja: ['滝廉太郎', 'たきれんたろう', 'taki'] },
+  { name: 'Kosaku Yamada', ja: ['山田耕筰', 'やまだこうさく', 'yamada'] },
+];
+
+function kataToHira(str) {
+  return str.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+}
+
+function searchComposers(query) {
+  if (!query || query.trim().length === 0) return [];
+  const q = kataToHira(query.toLowerCase().trim());
+  return COMPOSER_DB.filter(({ name, ja }) => {
+    if (kataToHira(name.toLowerCase()).includes(q)) return true;
+    return ja.some((alias) => kataToHira(alias.toLowerCase()).includes(q));
+  }).slice(0, 6);
+}
 
 let activeItem = null;
 let openReaderTabIds = [];
@@ -206,6 +285,7 @@ let isReaderFocusMode = false;
 let activeFolderId = 'all';
 let activeStatusFilter = 'all';
 let activeTypeFilter = 'all';
+let activeComposerFilter = null;
 let expandedFolderIds = new Set();
 let folderPickerCallback = null;
 let folderPickerSelectedIds = new Set();
@@ -390,6 +470,7 @@ function renderSidebar() {
     { id: 'orchestra', label: 'オーケストラ' },
     { id: 'chamber', label: '室内楽' },
     { id: 'solo', label: 'ソロ曲' },
+    { id: 'composer', label: '作曲家' },
   ];
   navItems.forEach(({ id, label }) => {
     const btn = document.createElement('button');
@@ -406,6 +487,34 @@ function renderSubFilter() {
   if (!folderTabs) return;
   const showSub = activeFolderId !== 'all' && activeFolderId !== 'favorites';
   if (!showSub) return;
+
+  if (activeFolderId === 'composer') {
+    const composers = [...new Set(
+      library.map((item) => item.composer).filter((c) => c && c.trim() !== '')
+    )].sort();
+    if (composers.length === 0) return;
+
+    const sep = document.createElement('div');
+    sep.className = 'filter-separator';
+    folderTabs.appendChild(sep);
+
+    [{ key: null, label: 'すべて' }, ...composers.map((c) => ({ key: c, label: c.split(' ').pop() || c }))].forEach(({ key, label }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'composer-chip';
+      btn.classList.toggle('active', activeComposerFilter === key);
+      btn.textContent = label;
+      if (key) btn.title = key;
+      btn.addEventListener('click', () => {
+        activeComposerFilter = key;
+        renderSidebar();
+        renderSubFilter();
+        renderList();
+      });
+      folderTabs.appendChild(btn);
+    });
+    return;
+  }
 
   const sep = document.createElement('div');
   sep.className = 'filter-separator';
@@ -495,6 +604,8 @@ function openEditSheet(item) {
   editingLibraryItemId = item.id;
   editTitleInput.value = item.title || '';
   editComposerInput.value = item.composer || '';
+  composerSuggestions.hidden = true;
+  composerSuggestions.innerHTML = '';
 
   backdrop.style.display = 'block';
   editSheet.style.display = 'block';
@@ -510,6 +621,8 @@ function openEditSheet(item) {
 
 function closeEditSheet() {
   editingLibraryItemId = null;
+  composerSuggestions.hidden = true;
+  composerSuggestions.innerHTML = '';
   editSheet.classList.remove('open');
   editSheet.setAttribute('aria-hidden', 'true');
 
@@ -839,6 +952,13 @@ function getVisibleLibraryItems() {
     return library.filter((item) => favoriteItemIds.includes(item.id));
   }
 
+  if (activeFolderId === 'composer') {
+    if (activeComposerFilter) {
+      return library.filter((item) => (item.composer || '').trim() === activeComposerFilter);
+    }
+    return library.filter((item) => item.composer && item.composer.trim() !== '');
+  }
+
   return library.filter((item) => itemMatchesFolderTree(item, effectiveId));
 }
 
@@ -877,6 +997,7 @@ function setActiveFolder(folderId) {
   if (folderId !== activeFolderId) {
     activeStatusFilter = 'all';
     activeTypeFilter = 'all';
+    activeComposerFilter = null;
   }
   activeFolderId = folderId;
   renderList();
@@ -3865,7 +3986,19 @@ function renderList() {
     menuItems.push(moveFolderAction, deleteAction);
     menu.append(...menuItems);
 
-    row.append(thumb, meta, more, menu);
+    const isFav = favoriteItemIds.includes(item.id);
+    const star = document.createElement('button');
+    star.className = 'star-btn';
+    star.type = 'button';
+    star.textContent = isFav ? '★' : '☆';
+    star.setAttribute('aria-label', isFav ? 'お気に入りから外す' : 'お気に入りに追加');
+    star.classList.toggle('active', isFav);
+    star.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFavoriteItem(item.id);
+    });
+
+    row.append(thumb, meta, star, more, menu);
         scoreList.appendChild(row);
       });
     } catch (error) {
@@ -4036,6 +4169,46 @@ bindTap(openReaderButton, openReaderFromPreview);
 bindTap(closePreviewButton, closePreviewSheet);
 bindTap(closeEditButton, closeEditSheet);
 bindTap(saveEditButton, saveEditSheet);
+
+editComposerInput.addEventListener('input', () => {
+  const results = searchComposers(editComposerInput.value);
+  if (results.length === 0) {
+    composerSuggestions.hidden = true;
+    composerSuggestions.innerHTML = '';
+    return;
+  }
+  composerSuggestions.innerHTML = '';
+  results.forEach(({ name }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'composer-suggestion-item';
+    btn.textContent = name;
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      editComposerInput.value = name;
+      composerSuggestions.hidden = true;
+      composerSuggestions.innerHTML = '';
+      editComposerInput.focus();
+    });
+    composerSuggestions.appendChild(btn);
+  });
+  composerSuggestions.hidden = false;
+});
+
+editComposerInput.addEventListener('blur', () => {
+  setTimeout(() => {
+    composerSuggestions.hidden = true;
+    composerSuggestions.innerHTML = '';
+  }, 150);
+});
+
+editComposerInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    composerSuggestions.hidden = true;
+    composerSuggestions.innerHTML = '';
+  }
+});
+
 bindTap(closeMoveFolderButton, closeMoveFolderSheet);
 bindTap(moveFolderConfirmButton, confirmFolderPickerSelection);
 bindTap(closeReaderButton, closeReader);

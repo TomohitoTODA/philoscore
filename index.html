@@ -127,6 +127,30 @@
         color: #fff;
       }
 
+      .composer-chip {
+        border: 1.5px solid var(--line);
+        background: #fff;
+        border-radius: 999px;
+        padding: 5px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--sub);
+        white-space: nowrap;
+        transition: background 0.1s, color 0.1s, border-color 0.1s;
+        flex-shrink: 0;
+      }
+
+      .composer-chip.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .composer-chip:hover:not(.active) {
+        background: #f4f4f6;
+      }
+
       .privacy-footer {
         margin-top: 32px;
         text-align: center;
@@ -301,6 +325,26 @@
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.03em;
+      }
+
+      .star-btn {
+        border: none;
+        background: transparent;
+        font-size: 20px;
+        color: #c8c8ce;
+        padding: 0 5px;
+        cursor: pointer;
+        flex-shrink: 0;
+        line-height: 1;
+        transition: color 0.12s;
+      }
+
+      .star-btn.active {
+        color: #f5a623;
+      }
+
+      .star-btn:hover {
+        color: #f5a623;
       }
 
       .more {
@@ -949,6 +993,45 @@
       .editor-input:focus {
         border-color: #b8b8bf;
         box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.06);
+      }
+
+      .composer-field-wrap {
+        position: relative;
+      }
+
+      .composer-suggestions {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 4px);
+        background: rgba(255, 255, 255, 0.98);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 20;
+      }
+
+      .composer-suggestions[hidden] {
+        display: none;
+      }
+
+      .composer-suggestion-item {
+        border: none;
+        background: transparent;
+        text-align: left;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        cursor: pointer;
+        color: var(--text);
+      }
+
+      .composer-suggestion-item:hover {
+        background: #f6f6f8;
       }
 
       .editor-actions {
@@ -1820,10 +1903,13 @@
           <input id="editTitleInput" class="editor-input" type="text" autocomplete="off" />
         </label>
 
-        <label class="editor-field" for="editComposerInput">
-          <span class="editor-label">作曲者名</span>
-          <input id="editComposerInput" class="editor-input" type="text" autocomplete="off" />
-        </label>
+        <div class="composer-field-wrap">
+          <label class="editor-field" for="editComposerInput">
+            <span class="editor-label">作曲者名</span>
+            <input id="editComposerInput" class="editor-input" type="text" autocomplete="off" />
+          </label>
+          <div id="composerSuggestions" class="composer-suggestions" hidden></div>
+        </div>
       </div>
 
       <div class="editor-actions">
@@ -2019,6 +2105,6 @@
     </section>
 
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260616-10" defer></script>
+    <script src="script.js?v=20260616-11" defer></script>
   </body>
 </html>
