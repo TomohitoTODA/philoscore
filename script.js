@@ -4269,10 +4269,22 @@ function positionComposerSuggestions() {
 }
 
 let composerInputIsComposing = false;
-editComposerInput.addEventListener('compositionstart', () => { composerInputIsComposing = true; });
+let composerCompositionJustEnded = false;
+let composerCompositionEndTimer = null;
+
+editComposerInput.addEventListener('compositionstart', () => {
+  composerInputIsComposing = true;
+  composerCompositionJustEnded = false;
+  clearTimeout(composerCompositionEndTimer);
+});
 editComposerInput.addEventListener('compositionend', () => {
   composerInputIsComposing = false;
-  // IME確定後にサジェストを更新
+  composerCompositionJustEnded = true;
+  clearTimeout(composerCompositionEndTimer);
+  // setTimeout(0) で次のイベントループ後にフラグを解除
+  // Safari では compositionend → keydown の順で発火するため、
+  // keydown が終わってからフラグを下げる
+  composerCompositionEndTimer = setTimeout(() => { composerCompositionJustEnded = false; }, 0);
   showComposerSuggestions();
 });
 
@@ -4303,7 +4315,7 @@ function showComposerSuggestions() {
 }
 
 editComposerInput.addEventListener('input', () => {
-  if (composerInputIsComposing) return; // IME変換中はスキップ
+  if (composerInputIsComposing) return;
   showComposerSuggestions();
 });
 
@@ -4318,6 +4330,12 @@ editComposerInput.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     composerSuggestions.hidden = true;
     composerSuggestions.innerHTML = '';
+  }
+  // IME確定のEnterがdocumentレベルのsaveハンドラに届かないようにする
+  // Safari: compositionend → keydown の順なので isComposing は既に false だが
+  // composerCompositionJustEnded フラグで検知する
+  if (e.key === 'Enter' && (e.isComposing || composerInputIsComposing || composerCompositionJustEnded)) {
+    e.stopPropagation();
   }
 });
 
