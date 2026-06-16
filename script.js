@@ -50,6 +50,7 @@ const scoreList = document.getElementById('scoreList');
 const composerIndex = document.getElementById('composerIndex');
 const listArea = document.getElementById('listArea');
 const folderTabs = document.getElementById('folderTabs');
+const headerAddButton = document.getElementById('headerAddButton');
 
 const backdrop = document.getElementById('backdrop');
 const previewSheet = document.getElementById('previewSheet');
@@ -217,6 +218,8 @@ const COMPOSER_DB = [
   { name: 'John Adams', ja: ['ジョン・アダムズ', 'アダムズ', 'john adams', 'adams'] },
   { name: 'Leoš Janáček', ja: ['ヤナーチェク', 'やなーちぇく', 'janacek'] },
   { name: 'Eugène-Auguste Ysaÿe', ja: ['イザイ', 'いざい', 'ysaye', 'ysaÿe'] },
+  { name: 'Erich Wolfgang Korngold', ja: ['コルンゴルト', 'こるんごると', 'korngold'] },
+  { name: 'Igor Frolov', ja: ['イーゴリ・フロロフ', 'いーごりふろろふ', 'frolov'] },
   { name: 'Toru Takemitsu', ja: ['武満徹', 'たけみつとおる', 'たけみつ', 'takemitsu'] },
   { name: 'Ikuma Dan', ja: ['団伊玖磨', 'だんいくま', 'dan ikuma'] },
   { name: 'Rentaro Taki', ja: ['滝廉太郎', 'たきれんたろう', 'taki'] },
@@ -473,9 +476,17 @@ function renderSidebar() {
     { id: 'orchestra', label: 'オーケストラ' },
     { id: 'chamber', label: '室内楽' },
     { id: 'solo', label: 'ソロ曲' },
+    { separator: true },
     { id: 'composer', label: '作曲家' },
   ];
-  navItems.forEach(({ id, label }) => {
+  navItems.forEach((navItem) => {
+    if (navItem.separator) {
+      const sep = document.createElement('div');
+      sep.className = 'filter-separator';
+      folderTabs.appendChild(sep);
+      return;
+    }
+    const { id, label } = navItem;
     const btn = document.createElement('button');
     btn.className = 'folder-tab';
     btn.classList.toggle('active', activeFolderId === id);
@@ -484,6 +495,9 @@ function renderSidebar() {
     btn.addEventListener('click', () => setActiveFolder(id));
     folderTabs.appendChild(btn);
   });
+
+  // 作曲家タブは閲覧専用 — 追加ボタンを隠す
+  if (headerAddButton) headerAddButton.hidden = activeFolderId === 'composer';
 }
 
 function renderSubFilter() {
