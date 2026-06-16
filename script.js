@@ -575,12 +575,18 @@ function cleanupLibraryItem(item) {
     }
   });
   deleteAnnotationsForItemFromDb(item.id);
+  scheduleDriveAnnotationSync();
 
   Array.from(persistentAnnotationCanvases.keys()).forEach((key) => {
     if (key.startsWith(`${item.id}:`)) {
       persistentAnnotationCanvases.delete(key);
     }
   });
+
+  if (item.driveFileId && isSignedIn()) {
+    driveApiFetch('DELETE', `/drive/v3/files/${item.driveFileId}`)
+      .catch((err) => console.error('Drive file delete failed:', err));
+  }
 }
 
 function getLibraryItemById(itemId) {
@@ -1262,6 +1268,10 @@ async function closeReaderTab(itemId) {
     return;
   }
 
+  Array.from(persistentAnnotationCanvases.keys()).forEach((key) => {
+    if (key.startsWith(`${itemId}:`)) persistentAnnotationCanvases.delete(key);
+  });
+
   const wasActive = activeItem && activeItem.id === itemId;
   openReaderTabIds = openReaderTabIds.filter((id) => id !== itemId);
 
@@ -1414,6 +1424,7 @@ function deleteLibraryItem(itemId) {
   openLibraryMenuId = null;
   renderReaderTabs();
   renderList();
+  saveLibraryMetadata().catch((err) => console.error('Drive metadata save failed:', err));
 }
 
 function updatePagerButtons(state, prevButton, nextButton, label) {
@@ -3161,7 +3172,9 @@ function clearCurrentAnnotation() {
   const key = getAnnotationKey(activeAnnotationPage);
   if (key) {
     annotationStrokes.delete(key);
+    annotationRedoStacks.delete(key);
     deleteAnnotationFromDb(key);
+    scheduleDriveAnnotationSync();
   }
 }
 
@@ -4194,7 +4207,9 @@ function bindSingleToggle(button, handler) {
 bindSingleToggle(metronomeWindowToggle, toggleMetronomeWindow);
 bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
 
-openAnnotationDb().then(loadAllAnnotationsFromDb).catch(() => {});
+openAnnotationDb().then(loadAllAnnotationsFromDb).catch((err) => {
+  console.warn('IndexedDB unavailable (private browsing?), annotations will not be persisted locally:', err);
+});
 renderList();
 
 // --- Google Auth & Drive ---
@@ -4444,7 +4459,10 @@ function scheduleDriveAnnotationSync() {
   if (!isSignedIn()) return;
   if (driveAnnotationSyncTimer) clearTimeout(driveAnnotationSyncTimer);
   driveAnnotationSyncTimer = setTimeout(() => {
-    saveAnnotationsToDrive().catch((err) => console.error('Annotation Drive sync failed:', err));
+    saveAnnotationsToDrive().catch((err) => {
+      console.error('Annotation Drive sync failed:', err);
+      if (driveStatus) driveStatus.textContent = '同期失敗';
+    });
   }, 5000);
 }
 
