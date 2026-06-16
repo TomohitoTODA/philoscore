@@ -220,6 +220,7 @@ const COMPOSER_DB = [
   { name: 'Eugène-Auguste Ysaÿe', ja: ['イザイ', 'いざい', 'ysaye', 'ysaÿe'] },
   { name: 'Erich Wolfgang Korngold', ja: ['コルンゴルト', 'こるんごると', 'korngold'] },
   { name: 'Igor Frolov', ja: ['イーゴリ・フロロフ', 'いーごりふろろふ', 'frolov'] },
+  { name: 'Heinrich Wilhelm Ernst', ja: ['エルンスト', 'えるんすと', 'ernst'] },
   { name: 'Toru Takemitsu', ja: ['武満徹', 'たけみつとおる', 'たけみつ', 'takemitsu'] },
   { name: 'Ikuma Dan', ja: ['団伊玖磨', 'だんいくま', 'dan ikuma'] },
   { name: 'Rentaro Taki', ja: ['滝廉太郎', 'たきれんたろう', 'taki'] },
