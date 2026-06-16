@@ -1897,13 +1897,10 @@
           <input id="editTitleInput" class="editor-input" type="text" autocomplete="off" />
         </label>
 
-        <div class="composer-field-wrap">
-          <label class="editor-field" for="editComposerInput">
-            <span class="editor-label">作曲者名</span>
-            <input id="editComposerInput" class="editor-input" type="text" autocomplete="off" />
-          </label>
-          <div id="composerSuggestions" class="composer-suggestions" hidden></div>
-        </div>
+        <label class="editor-field" for="editComposerInput">
+          <span class="editor-label">作曲者名</span>
+          <input id="editComposerInput" class="editor-input" type="text" autocomplete="off" />
+        </label>
       </div>
 
       <div class="editor-actions">
@@ -2098,7 +2095,8 @@
       </div>
     </section>
 
+    <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260616-12" defer></script>
+    <script src="script.js?v=20260616-13" defer></script>
   </body>
 </html>
