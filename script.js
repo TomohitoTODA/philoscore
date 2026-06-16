@@ -4180,17 +4180,8 @@ function positionComposerSuggestions() {
   const rect = editComposerInput.getBoundingClientRect();
   composerSuggestions.style.left = rect.left + 'px';
   composerSuggestions.style.width = rect.width + 'px';
-  const spaceBelow = window.innerHeight - rect.bottom - 8;
-  const spaceAbove = rect.top - 8;
-  if (spaceBelow >= 150 || spaceBelow >= spaceAbove) {
-    const maxH = Math.min(280, Math.max(80, spaceBelow));
-    composerSuggestions.style.top = (rect.bottom + 4) + 'px';
-    composerSuggestions.style.maxHeight = maxH + 'px';
-  } else {
-    const maxH = Math.min(280, Math.max(80, spaceAbove));
-    composerSuggestions.style.top = (rect.top - 4 - maxH) + 'px';
-    composerSuggestions.style.maxHeight = maxH + 'px';
-  }
+  composerSuggestions.style.top = (rect.bottom + 4) + 'px';
+  composerSuggestions.style.maxHeight = Math.min(240, Math.max(80, window.innerHeight - rect.bottom - 12)) + 'px';
 }
 
 editComposerInput.addEventListener('input', () => {
