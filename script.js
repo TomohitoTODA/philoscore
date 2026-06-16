@@ -47,6 +47,8 @@ async function ensurePdfJs() {
 const fileInput = document.getElementById('fileInput');
 const emptyState = document.getElementById('emptyState');
 const scoreList = document.getElementById('scoreList');
+const composerIndex = document.getElementById('composerIndex');
+const listArea = document.getElementById('listArea');
 const folderTabs = document.getElementById('folderTabs');
 
 const backdrop = document.getElementById('backdrop');
@@ -490,30 +492,7 @@ function renderSubFilter() {
   if (!showSub) return;
 
   if (activeFolderId === 'composer') {
-    const composers = [...new Set(
-      library.map((item) => item.composer).filter((c) => c && c.trim() !== '')
-    )].sort();
-    if (composers.length === 0) return;
-
-    const sep = document.createElement('div');
-    sep.className = 'filter-separator';
-    folderTabs.appendChild(sep);
-
-    [{ key: null, label: 'すべて' }, ...composers.map((c) => ({ key: c, label: c.split(' ').pop() || c }))].forEach(({ key, label }) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'composer-chip';
-      btn.classList.toggle('active', activeComposerFilter === key);
-      btn.textContent = label;
-      if (key) btn.title = key;
-      btn.addEventListener('click', () => {
-        activeComposerFilter = key;
-        renderSidebar();
-        renderSubFilter();
-        renderList();
-      });
-      folderTabs.appendChild(btn);
-    });
+    // Navigation handled by left-side index; no chip filter needed here
     return;
   }
 
@@ -809,9 +788,15 @@ function setItemFolderIds(item, folderIds) {
     return;
   }
 
-  const normalized = Array.isArray(folderIds)
+  let normalized = Array.isArray(folderIds)
     ? folderIds.filter((id) => id && id !== 'favorites' && (id === 'inbox' || getFolderById(id))).filter((id, index, self) => self.indexOf(id) === index)
     : [];
+
+  // Single-folder mode: if any non-inbox folder is assigned, drop inbox
+  const nonInbox = normalized.filter((id) => id !== 'inbox');
+  if (nonInbox.length > 0) normalized = nonInbox;
+  // Keep only the first (most recently chosen) folder
+  if (normalized.length > 1) normalized = [normalized[0]];
 
   const nextIds = normalized.length > 0 ? normalized : ['inbox'];
   item.folderIds = nextIds;
@@ -954,9 +939,6 @@ function getVisibleLibraryItems() {
   }
 
   if (activeFolderId === 'composer') {
-    if (activeComposerFilter) {
-      return library.filter((item) => (item.composer || '').trim() === activeComposerFilter);
-    }
     return library.filter((item) => item.composer && item.composer.trim() !== '');
   }
 
@@ -1282,7 +1264,7 @@ function openMoveFolderSheet(item) {
   }, {
     title: 'フォルダを変更',
     selectedIds: getItemFolderIds(item),
-    multiple: true,
+    multiple: false,
     selectableParents: false,
   });
 }
@@ -3835,6 +3817,166 @@ async function renderPdfThumbnail(item, thumbEl) {
   }
 }
 
+function composerSortKey(name) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  return (parts[parts.length - 1] || parts[0] || '').toLowerCase();
+}
+
+function composerInitial(name) {
+  const key = composerSortKey(name);
+  if (!key) return '#';
+  const ch = key[0].toUpperCase();
+  return /[A-Z]/.test(ch) ? ch : '#';
+}
+
+function buildListRow(item) {
+  const row = document.createElement('li');
+  row.className = 'row';
+  row.addEventListener('click', () => openPreviewSheet(item));
+
+  const thumb = document.createElement('div');
+  thumb.className = 'thumb';
+  if (item.type === 'image') {
+    const image = document.createElement('img');
+    image.src = item.url;
+    image.alt = `${item.title} サムネイル`;
+    thumb.appendChild(image);
+  } else {
+    const mark = document.createElement('span');
+    mark.className = 'pdf-mark';
+    mark.textContent = 'PDF';
+    thumb.appendChild(mark);
+    renderPdfThumbnail(item, thumb);
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+
+  const title = document.createElement('p');
+  title.className = 'song-title';
+  title.textContent = item.title;
+
+  const author = document.createElement('p');
+  author.className = 'author';
+  author.textContent = getItemComposerLabel(item);
+
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  try {
+    tag.textContent = getItemFolderDisplayLabel(item);
+  } catch {
+    tag.textContent = '未分類';
+  }
+
+  meta.append(title, author, tag);
+
+  const more = document.createElement('button');
+  more.className = 'more';
+  more.type = 'button';
+  more.textContent = '…';
+  more.setAttribute('aria-label', `${item.title} のメニュー`);
+  more.setAttribute('aria-expanded', openLibraryMenuId === item.id ? 'true' : 'false');
+  more.addEventListener('click', (event) => {
+    event.stopPropagation();
+    openLibraryMenuId = openLibraryMenuId === item.id ? null : item.id;
+    renderList();
+  });
+
+  const menu = document.createElement('div');
+  menu.className = 'library-menu';
+  menu.hidden = openLibraryMenuId !== item.id;
+  menu.addEventListener('click', (event) => { event.stopPropagation(); });
+
+  const previewAction = document.createElement('button');
+  previewAction.className = 'library-menu-button';
+  previewAction.type = 'button';
+  previewAction.textContent = 'プレビュー';
+  previewAction.addEventListener('click', () => {
+    openLibraryMenuId = null;
+    renderList();
+    openPreviewSheet(item);
+  });
+
+  const editAction = document.createElement('button');
+  editAction.className = 'library-menu-button edit';
+  editAction.type = 'button';
+  editAction.textContent = '編集';
+  editAction.addEventListener('click', () => {
+    openLibraryMenuId = null;
+    renderList();
+    openEditSheet(item);
+  });
+
+  const favoriteAction = document.createElement('button');
+  favoriteAction.className = 'library-menu-button';
+  favoriteAction.type = 'button';
+  favoriteAction.textContent = favoriteItemIds.includes(item.id) ? 'お気に入りから外す' : 'お気に入りに追加';
+  favoriteAction.addEventListener('click', () => {
+    toggleFavoriteItem(item.id, !favoriteItemIds.includes(item.id));
+    openLibraryMenuId = null;
+    renderList();
+  });
+
+  const moveFolderAction = document.createElement('button');
+  moveFolderAction.className = 'library-menu-button';
+  moveFolderAction.type = 'button';
+  moveFolderAction.textContent = 'フォルダを変更';
+  bindTap(moveFolderAction, () => {
+    try {
+      openLibraryMenuId = null;
+      menu.hidden = true;
+      openMoveFolderSheet(item);
+    } catch (error) {
+      console.error('Failed to open folder mover.', error);
+      const detail = error?.stack || error?.message || 'unknown error';
+      alert(`フォルダ変更画面を開けませんでした。\n${detail}`);
+    }
+  });
+
+  const itemFolderIds = Array.isArray(item.folderIds) ? item.folderIds : [item.folderId || 'inbox'];
+  const isInPractice = itemFolderIds.some((id) => id.includes('-practice'));
+  const isInPast = itemFolderIds.some((id) => id.includes('-past'));
+
+  const deleteAction = document.createElement('button');
+  deleteAction.className = 'library-menu-button danger';
+  deleteAction.type = 'button';
+  deleteAction.textContent = '削除';
+  deleteAction.addEventListener('click', () => {
+    if (!window.confirm(`「${item.title}」を削除しますか？`)) return;
+    deleteLibraryItem(item.id);
+  });
+
+  const menuItems = [previewAction, editAction, favoriteAction];
+  if (isInPractice || isInPast) {
+    const moveStatusAction = document.createElement('button');
+    moveStatusAction.className = 'library-menu-button';
+    moveStatusAction.type = 'button';
+    moveStatusAction.textContent = isInPractice ? '過去の曲に移動' : '練習中に戻す';
+    moveStatusAction.addEventListener('click', () => {
+      moveItemToStatus(item, isInPractice ? 'past' : 'practice');
+    });
+    menuItems.push(moveStatusAction);
+  }
+  menuItems.push(moveFolderAction, deleteAction);
+  menu.append(...menuItems);
+
+  const isFav = favoriteItemIds.includes(item.id);
+  const star = document.createElement('button');
+  star.className = 'star-btn';
+  star.type = 'button';
+  star.textContent = isFav ? '★' : '☆';
+  star.setAttribute('aria-label', isFav ? 'お気に入りから外す' : 'お気に入りに追加');
+  star.classList.toggle('active', isFav);
+  star.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleFavoriteItem(item.id);
+  });
+
+  row.append(thumb, meta, star, more, menu);
+  return row;
+}
+
 function renderList() {
   if (isRenderingList) {
     return;
@@ -3851,162 +3993,59 @@ function renderList() {
     }
 
     try {
-      visibleItems.forEach((item) => {
-        const row = document.createElement('li');
-        row.className = 'row';
-        row.addEventListener('click', () => openPreviewSheet(item));
+      const inComposerMode = activeFolderId === 'composer';
+      scoreList.classList.toggle('composer-mode', inComposerMode);
+      if (listArea) listArea.classList.toggle('has-index', inComposerMode);
+      if (composerIndex) composerIndex.hidden = !inComposerMode;
 
-    const thumb = document.createElement('div');
-    thumb.className = 'thumb';
+      if (inComposerMode) {
+        // Sort by composer last name, then title
+        const sorted = [...visibleItems].sort((a, b) => {
+          const ka = composerSortKey(a.composer);
+          const kb = composerSortKey(b.composer);
+          if (ka !== kb) return ka.localeCompare(kb, 'en');
+          return (a.title || '').localeCompare(b.title || '', 'ja');
+        });
 
-    if (item.type === 'image') {
-      const image = document.createElement('img');
-      image.src = item.url;
-      image.alt = `${item.title} サムネイル`;
-      thumb.appendChild(image);
-    } else {
-      const mark = document.createElement('span');
-      mark.className = 'pdf-mark';
-      mark.textContent = 'PDF';
-      thumb.appendChild(mark);
-      renderPdfThumbnail(item, thumb);
-    }
+        // Group by first letter of last name
+        const groups = [];
+        sorted.forEach((item) => {
+          const letter = composerInitial(item.composer);
+          const last = groups[groups.length - 1];
+          if (!last || last.letter !== letter) {
+            groups.push({ letter, items: [item] });
+          } else {
+            last.items.push(item);
+          }
+        });
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
+        groups.forEach(({ letter, items: groupItems }) => {
+          const header = document.createElement('li');
+          header.className = 'section-header';
+          header.id = `ci-${letter}`;
+          header.textContent = letter;
+          scoreList.appendChild(header);
+          groupItems.forEach((item) => scoreList.appendChild(buildListRow(item)));
+        });
 
-    const title = document.createElement('p');
-    title.className = 'song-title';
-    title.textContent = item.title;
-
-    const author = document.createElement('p');
-    author.className = 'author';
-    author.textContent = getItemComposerLabel(item);
-
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-    try {
-      tag.textContent = getItemFolderDisplayLabel(item);
-    } catch (error) {
-      console.warn('Failed to build folder label.', error);
-      tag.textContent = '未分類';
-    }
-
-    meta.append(title, author, tag);
-
-    const more = document.createElement('button');
-    more.className = 'more';
-    more.type = 'button';
-    more.textContent = '…';
-    more.setAttribute('aria-label', `${item.title} のメニュー`);
-    more.setAttribute('aria-expanded', openLibraryMenuId === item.id ? 'true' : 'false');
-    more.addEventListener('click', (event) => {
-      event.stopPropagation();
-      openLibraryMenuId = openLibraryMenuId === item.id ? null : item.id;
-      renderList();
-    });
-
-    const menu = document.createElement('div');
-    menu.className = 'library-menu';
-    menu.hidden = openLibraryMenuId !== item.id;
-    menu.addEventListener('click', (event) => {
-      event.stopPropagation();
-    });
-
-    const previewAction = document.createElement('button');
-    previewAction.className = 'library-menu-button';
-    previewAction.type = 'button';
-    previewAction.textContent = 'プレビュー';
-    previewAction.addEventListener('click', () => {
-      openLibraryMenuId = null;
-      renderList();
-      openPreviewSheet(item);
-    });
-
-    const editAction = document.createElement('button');
-    editAction.className = 'library-menu-button edit';
-    editAction.type = 'button';
-    editAction.textContent = '編集';
-    editAction.addEventListener('click', () => {
-      openLibraryMenuId = null;
-      renderList();
-      openEditSheet(item);
-    });
-
-    const favoriteAction = document.createElement('button');
-    favoriteAction.className = 'library-menu-button';
-    favoriteAction.type = 'button';
-    favoriteAction.textContent = favoriteItemIds.includes(item.id) ? 'お気に入りから外す' : 'お気に入りに追加';
-    favoriteAction.addEventListener('click', () => {
-      toggleFavoriteItem(item.id, !favoriteItemIds.includes(item.id));
-      openLibraryMenuId = null;
-      renderList();
-    });
-
-    const moveFolderAction = document.createElement('button');
-    moveFolderAction.className = 'library-menu-button';
-    moveFolderAction.type = 'button';
-    moveFolderAction.textContent = 'フォルダを変更';
-    const openMoveFolderAction = () => {
-      try {
-        openLibraryMenuId = null;
-        menu.hidden = true;
-        openMoveFolderSheet(item);
-      } catch (error) {
-        console.error('Failed to open folder mover.', error);
-        const detail = error && error.stack
-          ? error.stack
-          : (error && error.message ? error.message : 'unknown error');
-        alert(`フォルダ変更画面を開けませんでした。\n${detail}`);
+        // Build index
+        if (composerIndex) {
+          composerIndex.innerHTML = '';
+          groups.forEach(({ letter }) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ci-btn';
+            btn.textContent = letter;
+            btn.addEventListener('click', () => {
+              const target = document.getElementById(`ci-${letter}`);
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            composerIndex.appendChild(btn);
+          });
+        }
+      } else {
+        visibleItems.forEach((item) => scoreList.appendChild(buildListRow(item)));
       }
-    };
-    bindTap(moveFolderAction, openMoveFolderAction);
-
-    const itemFolderIds = Array.isArray(item.folderIds) ? item.folderIds : [item.folderId || 'inbox'];
-    const isInPractice = itemFolderIds.some((id) => id.includes('-practice'));
-    const isInPast = itemFolderIds.some((id) => id.includes('-past'));
-
-    const deleteAction = document.createElement('button');
-    deleteAction.className = 'library-menu-button danger';
-    deleteAction.type = 'button';
-    deleteAction.textContent = '削除';
-    deleteAction.addEventListener('click', () => {
-      const confirmed = window.confirm(`「${item.title}」を削除しますか？`);
-      if (!confirmed) {
-        return;
-      }
-      deleteLibraryItem(item.id);
-    });
-
-    const menuItems = [previewAction, editAction, favoriteAction];
-    if (isInPractice || isInPast) {
-      const moveStatusAction = document.createElement('button');
-      moveStatusAction.className = 'library-menu-button';
-      moveStatusAction.type = 'button';
-      moveStatusAction.textContent = isInPractice ? '過去の曲に移動' : '練習中に戻す';
-      moveStatusAction.addEventListener('click', () => {
-        moveItemToStatus(item, isInPractice ? 'past' : 'practice');
-      });
-      menuItems.push(moveStatusAction);
-    }
-    menuItems.push(moveFolderAction, deleteAction);
-    menu.append(...menuItems);
-
-    const isFav = favoriteItemIds.includes(item.id);
-    const star = document.createElement('button');
-    star.className = 'star-btn';
-    star.type = 'button';
-    star.textContent = isFav ? '★' : '☆';
-    star.setAttribute('aria-label', isFav ? 'お気に入りから外す' : 'お気に入りに追加');
-    star.classList.toggle('active', isFav);
-    star.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleFavoriteItem(item.id);
-    });
-
-    row.append(thumb, meta, star, more, menu);
-        scoreList.appendChild(row);
-      });
     } catch (error) {
       throw new Error(`renderList:row-build: ${error && error.message ? error.message : error}`);
     }

@@ -151,6 +151,78 @@
         background: #f4f4f6;
       }
 
+      .list-area {
+        display: block;
+      }
+
+      .list-area.has-index {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .list-area.has-index .list {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .composer-index {
+        width: 30px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: sticky;
+        top: 24px;
+        max-height: calc(100dvh - 48px);
+        overflow-y: auto;
+        scrollbar-width: none;
+        padding: 2px 0;
+      }
+
+      .composer-index::-webkit-scrollbar {
+        display: none;
+      }
+
+      .ci-btn {
+        width: 28px;
+        height: 20px;
+        border: none;
+        background: transparent;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--accent);
+        cursor: pointer;
+        border-radius: 5px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ci-btn:hover {
+        background: rgba(17, 17, 17, 0.08);
+      }
+
+      .list.composer-mode {
+        border-radius: 12px;
+      }
+
+      .section-header {
+        list-style: none;
+        padding: 10px 14px 4px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        color: var(--sub);
+        border-bottom: 1px solid var(--line);
+        background: var(--bg);
+      }
+
+      .section-header:first-child {
+        border-radius: 12px 12px 0 0;
+      }
+
       .privacy-footer {
         margin-top: 32px;
         text-align: center;
@@ -1863,7 +1935,10 @@
         <label id="emptyAddButton" class="add-button" for="fileInput">楽譜を追加する</label>
       </section>
 
-      <ul id="scoreList" class="list" hidden></ul>
+      <div id="listArea" class="list-area">
+        <div id="composerIndex" class="composer-index" hidden></div>
+        <ul id="scoreList" class="list" hidden></ul>
+      </div>
 
       <footer class="privacy-footer">
         <a href="privacy.html">プライバシーポリシー</a>
@@ -2101,6 +2176,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260616-14" defer></script>
+    <script src="script.js?v=20260616-15" defer></script>
   </body>
 </html>
