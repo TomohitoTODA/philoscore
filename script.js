@@ -3296,6 +3296,10 @@ reader.addEventListener('wheel', (event) => {
 // 2本指ピンチを readerZoom に適用する
 let pinchStartDist = null;
 let pinchStartZoom = null;
+let pinchOriginX = 0;
+let pinchOriginY = 0;
+let pinchScrollTop = 0;
+let pinchScrollLeft = 0;
 let pinchCommitTimer = null;
 
 function getPinchDist(touches) {
@@ -3313,6 +3317,14 @@ readerStage.addEventListener('touchstart', (event) => {
   if (event.touches.length === 2) {
     pinchStartDist = getPinchDist(event.touches);
     pinchStartZoom = readerZoom;
+    // ピンチ中心をスクロールコンテナ座標で記録（wheel zoom と同じ方式）
+    const rect = readerStage.getBoundingClientRect();
+    const mx = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+    const my = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+    pinchOriginX = mx - rect.left;
+    pinchOriginY = my - rect.top;
+    pinchScrollTop = readerStage.scrollTop;
+    pinchScrollLeft = readerStage.scrollLeft;
     event.preventDefault();
   }
 }, { passive: false });
@@ -3324,9 +3336,9 @@ readerStage.addEventListener('touchmove', (event) => {
     if (Math.abs(next - readerZoom) > 0.005) {
       readerZoom = next;
       updateZoomLabel();
-      // ピンチ中は即時 transform でプレビュー
+      // 固定した中心点で scale プレビュー
+      readerStage.style.transformOrigin = `${pinchOriginX}px ${pinchOriginY}px`;
       readerStage.style.transform = `scale(${readerZoom / pinchStartZoom})`;
-      readerStage.style.transformOrigin = `${(event.touches[0].clientX + event.touches[1].clientX) / 2}px ${(event.touches[0].clientY + event.touches[1].clientY) / 2}px`;
     }
     event.preventDefault();
   }
@@ -3334,6 +3346,11 @@ readerStage.addEventListener('touchmove', (event) => {
 
 readerStage.addEventListener('touchend', (event) => {
   if (pinchStartDist !== null && event.touches.length < 2) {
+    const s = readerZoom / pinchStartZoom;
+    const ox = pinchOriginX;
+    const oy = pinchOriginY;
+    const baseScrollTop = pinchScrollTop;
+    const baseScrollLeft = pinchScrollLeft;
     pinchStartDist = null;
     pinchStartZoom = null;
     readerStage.style.transform = '';
@@ -3342,6 +3359,11 @@ readerStage.addEventListener('touchend', (event) => {
     pinchCommitTimer = setTimeout(async () => {
       persistCurrentAnnotation();
       await renderReaderPage();
+      // wheel zoom と同じ式でスクロール位置を復元
+      requestAnimationFrame(() => {
+        readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
+        readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
+      });
     }, 150);
   }
 }, { passive: false });
@@ -4692,6 +4714,9 @@ if (mobileToolsToggle && leftRail) {
     mobileToolsToggle.textContent = isOpen ? 'ツール ▴' : 'ツール ▾';
   });
 }
+
+// Noto Music を事前ロードし、臨時記号の初回描画でフォールバックが出ないようにする
+document.fonts.load('48px "Noto Music"', '♯♭♮').catch(() => {});
 
 (async () => {
   try {
