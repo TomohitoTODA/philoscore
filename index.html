@@ -1245,7 +1245,25 @@
         width: 230px;
         display: flex;
         flex-direction: column;
+      }
+
+      .mobile-tools-toggle {
+        display: none;
+      }
+
+      .mobile-tools-panel {
+        display: flex;
+        flex-direction: column;
         justify-content: space-between;
+        flex: 1;
+        gap: 8px;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+
+      .mobile-tools-panel::-webkit-scrollbar {
+        display: none;
       }
 
       .right-rail {
@@ -1880,13 +1898,51 @@
         }
 
         .reader-body {
-          overflow: auto;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
+        .left-rail {
+          flex-shrink: 0;
+          justify-content: flex-start;
+          gap: 6px;
+        }
+
+        .mobile-tools-toggle {
+          display: block;
+          background: rgba(255, 255, 255, 0.97);
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          padding: 9px 14px;
+          text-align: left;
+          font-size: 14px;
+          color: var(--text);
+          font-weight: 600;
+          cursor: pointer;
+          pointer-events: auto;
+          width: 100%;
+        }
+
+        .mobile-tools-panel {
+          display: none;
+          overflow-y: auto;
+          max-height: 45vh;
+          justify-content: flex-start;
+        }
+
+        .left-rail.tools-open .mobile-tools-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
 
         .reader-main {
+          flex: 1;
+          min-height: 0;
+          height: auto;
           padding-left: 0;
           padding-right: 0;
-          height: min(70vh, 700px);
         }
 
         .floating-panel {
@@ -2030,6 +2086,8 @@
       <div class="reader-body">
         <aside class="left-rail">
           <span id="metronomeBeatIndicator" class="beat-indicator">●○○○</span>
+          <button id="mobileToolsToggle" class="mobile-tools-toggle" type="button">ツール ▾</button>
+          <div class="mobile-tools-panel">
           <div class="reader-tools">
             <button id="metronomeWindowToggle" class="ghost-button" type="button" onclick="window.toggleMetronomeWindowFallback && window.toggleMetronomeWindowFallback()">メトロノーム</button>
             <button id="tunerWindowToggle" class="ghost-button" type="button" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()">チューナー</button>
@@ -2083,6 +2141,7 @@
               <button id="readerNextButton" class="ghost-button" type="button">次へ</button>
             </div>
           </div>
+          </div><!-- /.mobile-tools-panel -->
 
         </aside>
 
@@ -2179,6 +2238,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260616-21" defer></script>
+    <script src="script.js?v=20260617-22" defer></script>
   </body>
 </html>

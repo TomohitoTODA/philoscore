@@ -4644,6 +4644,15 @@ function bindSingleToggle(button, handler) {
 bindSingleToggle(metronomeWindowToggle, toggleMetronomeWindow);
 bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
 
+const mobileToolsToggle = document.getElementById('mobileToolsToggle');
+const leftRail = document.querySelector('.left-rail');
+if (mobileToolsToggle && leftRail) {
+  mobileToolsToggle.addEventListener('click', () => {
+    const isOpen = leftRail.classList.toggle('tools-open');
+    mobileToolsToggle.textContent = isOpen ? 'ツール ▴' : 'ツール ▾';
+  });
+}
+
 (async () => {
   try {
     await openLibraryDb();
