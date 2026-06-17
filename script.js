@@ -2207,29 +2207,35 @@ function bindDrawingEvents(canvas) {
   const pageNumber = Number(canvas.dataset.page || '1');
   const activateCanvas = () => { setActiveAnnotationCanvas(canvas, pageNumber); };
 
-  // ポインターイベントで統一: mouse (PC) と pen (Apple Pencil) のみ描画、
-  // touch (指) はスキップしてスクロールに使わせる
-  canvas.style.touchAction = 'auto';
+  // pan-x pan-y: 指スクロールはブラウザに委ねる。ペンは preventDefault で横取り。
+  canvas.style.touchAction = 'pan-x pan-y';
 
   canvas.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') return;
+    event.preventDefault(); // ペン/マウス: スクロール禁止
+    canvas.setPointerCapture(event.pointerId); // ペンのすべての後続イベントを捕捉
     activateCanvas();
     beginDrawing(event);
-  });
+  }, { passive: false });
+
   canvas.addEventListener('pointermove', (event) => {
     if (event.pointerType === 'touch') return;
+    event.preventDefault();
     activateCanvas();
     setLastAnnotationPoint(event, canvas);
     drawLine(event);
-  });
+  }, { passive: false });
+
   canvas.addEventListener('pointerup', (event) => {
     if (event.pointerType === 'touch') return;
     stopDrawing();
   });
+
   canvas.addEventListener('pointerleave', (event) => {
     if (event.pointerType === 'touch') return;
     stopDrawing();
   });
+
   canvas.addEventListener('pointercancel', stopDrawing);
 }
 
@@ -3283,6 +3289,61 @@ reader.addEventListener('wheel', (event) => {
       readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
     });
   }, 200);
+}, { passive: false });
+
+// ── ピンチズーム (iPad / タッチデバイス) ─────────────────────────────────────
+// Safari の gesturechange でブラウザレベルのズームをブロックし、
+// 2本指ピンチを readerZoom に適用する
+let pinchStartDist = null;
+let pinchStartZoom = null;
+let pinchCommitTimer = null;
+
+function getPinchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Safari 独自イベントでブラウザズームを完全にブロック
+['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
+  reader.addEventListener(name, (e) => e.preventDefault(), { passive: false });
+});
+
+readerStage.addEventListener('touchstart', (event) => {
+  if (event.touches.length === 2) {
+    pinchStartDist = getPinchDist(event.touches);
+    pinchStartZoom = readerZoom;
+    event.preventDefault();
+  }
+}, { passive: false });
+
+readerStage.addEventListener('touchmove', (event) => {
+  if (event.touches.length === 2 && pinchStartDist !== null) {
+    const dist = getPinchDist(event.touches);
+    const next = clampZoom(pinchStartZoom * (dist / pinchStartDist));
+    if (Math.abs(next - readerZoom) > 0.005) {
+      readerZoom = next;
+      updateZoomLabel();
+      // ピンチ中は即時 transform でプレビュー
+      readerStage.style.transform = `scale(${readerZoom / pinchStartZoom})`;
+      readerStage.style.transformOrigin = `${(event.touches[0].clientX + event.touches[1].clientX) / 2}px ${(event.touches[0].clientY + event.touches[1].clientY) / 2}px`;
+    }
+    event.preventDefault();
+  }
+}, { passive: false });
+
+readerStage.addEventListener('touchend', (event) => {
+  if (pinchStartDist !== null && event.touches.length < 2) {
+    pinchStartDist = null;
+    pinchStartZoom = null;
+    readerStage.style.transform = '';
+    readerStage.style.transformOrigin = '';
+    clearTimeout(pinchCommitTimer);
+    pinchCommitTimer = setTimeout(async () => {
+      persistCurrentAnnotation();
+      await renderReaderPage();
+    }, 150);
+  }
 }, { passive: false });
 
 function setupAnnotationCanvas() {
@@ -4620,8 +4681,8 @@ function bindSingleToggle(button, handler) {
   };
 }
 
-bindSingleToggle(metronomeWindowToggle, toggleMetronomeWindow);
-bindSingleToggle(tunerWindowToggle, toggleTunerWindow);
+// metronomeWindowToggle / tunerWindowToggle は bindTap で処理済み。
+// bindSingleToggle を重ねると pointerup + touchend の二重発火で即閉じる。
 
 const mobileToolsToggle = document.getElementById('mobileToolsToggle');
 const leftRail = document.querySelector('.left-rail');
