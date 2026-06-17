@@ -1833,8 +1833,19 @@
         margin: 0 auto;
       }
 
+      .reader-group--vertical {
+        flex-direction: column;
+        align-items: center;
+      }
+
       .reader-page-cell {
         display: block;
+      }
+
+      /* scrollV/scrollH buttons: mobile-only */
+      #layoutScrollVBtn,
+      #layoutScrollHBtn {
+        display: none;
       }
 
       .tuner-note-row {
@@ -2049,6 +2060,24 @@
         .sidebar {
           width: min(86vw, 320px);
         }
+
+        /* iPad: 見開きA/B を非表示、縦/横つなぎを表示 */
+        #layoutSpreadABtn,
+        #layoutSpreadBBtn {
+          display: none;
+        }
+
+        #layoutScrollVBtn,
+        #layoutScrollHBtn {
+          display: inline-block;
+        }
+
+        /* iPad: ボーイング・臨時記号・指番号ボタンを非表示 */
+        #toolBowingButton,
+        #toolAccidentalButton,
+        #toolFingerButton {
+          display: none;
+        }
       }
     </style>
   </head>
@@ -2214,6 +2243,8 @@
                 <button id="layoutSingleButton" class="tool-button active" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('single')">1P</button>
                 <button id="layoutSpreadABtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadA')">見開きA</button>
                 <button id="layoutSpreadBBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadB')">見開きB</button>
+                <button id="layoutScrollVBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollV')">縦つなぎ</button>
+                <button id="layoutScrollHBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollH')">横つなぎ</button>
                 <button id="fullscreenToggleButton" class="tool-button" type="button">全画面</button>
               </div>
             </div>
@@ -2328,6 +2359,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260617-26" defer></script>
+    <script src="script.js?v=20260617-27" defer></script>
   </body>
 </html>

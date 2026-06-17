@@ -102,6 +102,8 @@ const zoomLabel = document.getElementById('zoomLabel');
 const layoutSingleButton = document.getElementById('layoutSingleButton');
 const layoutSpreadABtn = document.getElementById('layoutSpreadABtn');
 const layoutSpreadBBtn = document.getElementById('layoutSpreadBBtn');
+const layoutScrollVBtn = document.getElementById('layoutScrollVBtn');
+const layoutScrollHBtn = document.getElementById('layoutScrollHBtn');
 const fullscreenToggleButton = document.getElementById('fullscreenToggleButton');
 const metronomeWindowToggle = document.getElementById('metronomeWindowToggle');
 const metronomeBeatIndicator = document.getElementById('metronomeBeatIndicator');
@@ -2207,19 +2209,37 @@ function bindDrawingEvents(canvas) {
   const pageNumber = Number(canvas.dataset.page || '1');
   const activateCanvas = () => { setActiveAnnotationCanvas(canvas, pageNumber); };
 
-  // pan-x pan-y: 指スクロールはブラウザに委ねる。ペンは preventDefault で横取り。
-  canvas.style.touchAction = 'pan-x pan-y';
+  // touch-action: none — ペンも指もブラウザのスクロールを完全に無効化。
+  // 指スクロールは pointerType==='touch' を検知して手動で readerStage に転送する。
+  canvas.style.touchAction = 'none';
+
+  const activeTouchIds = new Set();
+  let fingerLastX = 0;
+  let fingerLastY = 0;
 
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.pointerType === 'touch') return;
-    event.preventDefault(); // ペン/マウス: スクロール禁止
-    canvas.setPointerCapture(event.pointerId); // ペンのすべての後続イベントを捕捉
+    if (event.pointerType === 'touch') {
+      activeTouchIds.add(event.pointerId);
+      fingerLastX = event.clientX;
+      fingerLastY = event.clientY;
+      return;
+    }
+    event.preventDefault();
+    canvas.setPointerCapture(event.pointerId);
     activateCanvas();
     beginDrawing(event);
   }, { passive: false });
 
   canvas.addEventListener('pointermove', (event) => {
-    if (event.pointerType === 'touch') return;
+    if (event.pointerType === 'touch') {
+      if (activeTouchIds.size === 1 && activeTouchIds.has(event.pointerId)) {
+        readerStage.scrollLeft -= event.clientX - fingerLastX;
+        readerStage.scrollTop -= event.clientY - fingerLastY;
+      }
+      fingerLastX = event.clientX;
+      fingerLastY = event.clientY;
+      return;
+    }
     event.preventDefault();
     activateCanvas();
     setLastAnnotationPoint(event, canvas);
@@ -2227,16 +2247,28 @@ function bindDrawingEvents(canvas) {
   }, { passive: false });
 
   canvas.addEventListener('pointerup', (event) => {
-    if (event.pointerType === 'touch') return;
+    if (event.pointerType === 'touch') {
+      activeTouchIds.delete(event.pointerId);
+      return;
+    }
     stopDrawing();
   });
 
   canvas.addEventListener('pointerleave', (event) => {
-    if (event.pointerType === 'touch') return;
+    if (event.pointerType === 'touch') {
+      activeTouchIds.delete(event.pointerId);
+      return;
+    }
     stopDrawing();
   });
 
-  canvas.addEventListener('pointercancel', stopDrawing);
+  canvas.addEventListener('pointercancel', (event) => {
+    if (event.pointerType === 'touch') {
+      activeTouchIds.delete(event.pointerId);
+      return;
+    }
+    stopDrawing();
+  });
 }
 
 function getTempoMarking(bpm) {
@@ -2293,6 +2325,8 @@ function applyLayoutButtonState() {
   layoutSingleButton.classList.toggle('active', readerLayoutMode === 'single');
   layoutSpreadABtn.classList.toggle('active', readerLayoutMode === 'spreadA');
   layoutSpreadBBtn.classList.toggle('active', readerLayoutMode === 'spreadB');
+  if (layoutScrollVBtn) layoutScrollVBtn.classList.toggle('active', readerLayoutMode === 'scrollV');
+  if (layoutScrollHBtn) layoutScrollHBtn.classList.toggle('active', readerLayoutMode === 'scrollH');
 }
 
 function updateFullscreenButtonState() {
@@ -2330,6 +2364,12 @@ function buildViewGroups(totalPages, mode) {
   const groups = [];
   if (totalPages <= 0) {
     return groups;
+  }
+
+  if (mode === 'scrollV' || mode === 'scrollH') {
+    const all = [];
+    for (let page = 1; page <= totalPages; page += 1) all.push(page);
+    return [all];
   }
 
   if (mode === 'single') {
@@ -2837,7 +2877,7 @@ function setMetronomeRhythm(name) {
 }
 
 function setReaderLayoutMode(mode) {
-  if (!['single', 'spreadA', 'spreadB'].includes(mode)) {
+  if (!['single', 'spreadA', 'spreadB', 'scrollV', 'scrollH'].includes(mode)) {
     return;
   }
 
@@ -3797,7 +3837,9 @@ async function renderReaderPage() {
     const currentGroup = viewGroups[readerState.page - 1] || [1];
     readerStage.innerHTML = '';
     const readerGroup = document.createElement('div');
-    readerGroup.className = 'reader-group';
+    readerGroup.className = readerLayoutMode === 'scrollV'
+      ? 'reader-group reader-group--vertical'
+      : 'reader-group';
 
     for (const pageNumber of currentGroup) {
       const cell = document.createElement('div');
@@ -4654,6 +4696,12 @@ bindTap(layoutSpreadABtn, () => {
 bindTap(layoutSpreadBBtn, () => {
   setReaderLayoutMode('spreadB');
 });
+if (layoutScrollVBtn) {
+  bindTap(layoutScrollVBtn, () => { setReaderLayoutMode('scrollV'); });
+}
+if (layoutScrollHBtn) {
+  bindTap(layoutScrollHBtn, () => { setReaderLayoutMode('scrollH'); });
+}
 bindTap(metronomeWindowToggle, toggleMetronomeWindow);
 bindTap(tunerWindowToggle, toggleTunerWindow);
 
