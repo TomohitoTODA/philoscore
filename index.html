@@ -1891,58 +1891,99 @@
       }
 
       @media (max-width: 820px) {
-        .left-rail,
-        .right-rail {
-          position: static;
+        /* left-rail: absolute overlay, full width, height = content only */
+        .left-rail {
+          right: 8px;
           width: auto;
+          bottom: auto;
+          z-index: 30;
+          justify-content: flex-start;
+        }
+
+        #metronomeBeatIndicator {
+          display: none;
+        }
+
+        .right-rail {
+          display: none;
         }
 
         .reader-body {
-          display: flex;
-          flex-direction: column;
           overflow: hidden;
         }
 
-        .left-rail {
-          flex-shrink: 0;
-          justify-content: flex-start;
-          gap: 6px;
+        /* PDF fills all space (left-rail overlays it) */
+        .reader-main {
+          padding-left: 0;
+          padding-right: 0;
+          height: 100%;
         }
 
+        /* Dark pill toggle button */
         .mobile-tools-toggle {
-          display: block;
-          background: rgba(255, 255, 255, 0.97);
-          border: 1px solid var(--line);
-          border-radius: 10px;
-          padding: 9px 14px;
-          text-align: left;
-          font-size: 14px;
-          color: var(--text);
+          display: inline-block;
+          pointer-events: auto;
+          background: rgba(20, 20, 20, 0.75);
+          color: rgba(255, 255, 255, 0.92);
+          border: none;
+          border-radius: 20px;
+          padding: 6px 14px;
+          font-size: 13px;
           font-weight: 600;
           cursor: pointer;
-          pointer-events: auto;
-          width: 100%;
         }
 
+        /* Collapsed: hide panel */
         .mobile-tools-panel {
           display: none;
+          pointer-events: auto;
+          background: rgba(255, 255, 255, 0.97);
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 10px;
+          margin-top: 6px;
           overflow-y: auto;
-          max-height: 45vh;
-          justify-content: flex-start;
+          max-height: 50vh;
+          scrollbar-width: none;
         }
 
+        .mobile-tools-panel::-webkit-scrollbar {
+          display: none;
+        }
+
+        /* Expanded: show panel as overlay card */
         .left-rail.tools-open .mobile-tools-panel {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 0;
         }
 
-        .reader-main {
-          flex: 1;
-          min-height: 0;
-          height: auto;
-          padding-left: 0;
-          padding-right: 0;
+        /* Flatten individual reader-tools cards into one panel */
+        .mobile-tools-panel .reader-tools {
+          border: none;
+          background: transparent;
+          padding: 8px 0;
+          border-radius: 0;
+        }
+
+        .mobile-tools-panel .reader-tools + .reader-tools {
+          border-top: 1px solid var(--line);
+        }
+
+        .mobile-tools-panel .ghost-button {
+          padding: 7px 10px;
+          font-size: 13px;
+        }
+
+        .mobile-tools-panel .tool-button {
+          padding: 5px 8px;
+          font-size: 12px;
+        }
+
+        .mobile-tools-panel .tool-group > span,
+        .mobile-tools-panel .layout-controls > span,
+        .mobile-tools-panel .zoom-controls > span {
+          font-size: 11px;
         }
 
         .floating-panel {
@@ -2238,6 +2279,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260617-22" defer></script>
+    <script src="script.js?v=20260617-23" defer></script>
   </body>
 </html>

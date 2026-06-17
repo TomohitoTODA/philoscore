@@ -2205,53 +2205,32 @@ function stopDrawing() {
 
 function bindDrawingEvents(canvas) {
   const pageNumber = Number(canvas.dataset.page || '1');
+  const activateCanvas = () => { setActiveAnnotationCanvas(canvas, pageNumber); };
 
-  const activateCanvas = () => {
-    setActiveAnnotationCanvas(canvas, pageNumber);
-  };
+  // ポインターイベントで統一: mouse (PC) と pen (Apple Pencil) のみ描画、
+  // touch (指) はスキップしてスクロールに使わせる
+  canvas.style.touchAction = 'auto';
 
-  canvas.addEventListener('mousedown', (event) => {
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'touch') return;
     activateCanvas();
     beginDrawing(event);
   });
-  canvas.addEventListener('mousemove', (event) => {
+  canvas.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch') return;
     activateCanvas();
     setLastAnnotationPoint(event, canvas);
     drawLine(event);
   });
-  canvas.addEventListener('mouseup', stopDrawing);
-  canvas.addEventListener('mouseleave', stopDrawing);
-  canvas.addEventListener('touchstart', (event) => {
-    event.preventDefault();
-    activateCanvas();
-    const touch = event.touches[0];
-    if (!touch) {
-      return;
-    }
-    beginDrawing({
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      button: 0,
-      preventDefault: () => {},
-    });
-  }, { passive: false });
-  canvas.addEventListener('touchmove', (event) => {
-    event.preventDefault();
-    const touch = event.touches[0];
-    if (!touch) {
-      return;
-    }
-    setLastAnnotationPoint({
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-    }, canvas);
-    drawLine({
-      clientX: touch.clientX,
-      clientY: touch.clientY,
-      preventDefault: () => {},
-    });
-  }, { passive: false });
-  canvas.addEventListener('touchend', stopDrawing);
+  canvas.addEventListener('pointerup', (event) => {
+    if (event.pointerType === 'touch') return;
+    stopDrawing();
+  });
+  canvas.addEventListener('pointerleave', (event) => {
+    if (event.pointerType === 'touch') return;
+    stopDrawing();
+  });
+  canvas.addEventListener('pointercancel', stopDrawing);
 }
 
 function getTempoMarking(bpm) {
