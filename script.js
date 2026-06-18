@@ -2832,7 +2832,7 @@ function resetMetronomeSwing() {
 
 function getMetronomeWeightRange() {
   const railHeight = metronomeRail ? (metronomeRail.clientHeight || 98) : 98;
-  const weightHeight = metronomeWeight ? metronomeWeight.clientHeight : 28;
+  const weightHeight = metronomeWeight ? (metronomeWeight.clientHeight || 28) : 28;
   const minTop = 4;
   const maxTop = Math.max(minTop, railHeight - weightHeight - 4);
   return { minTop, maxTop };
