@@ -2216,12 +2216,25 @@ function bindDrawingEvents(canvas) {
   const activeTouchIds = new Set();
   let fingerLastX = 0;
   let fingerLastY = 0;
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  let swipeDir = null; // 'h' (horizontal/swipe) | 'v' (vertical/scroll) | null
+
+  const resetSwipe = () => { swipeDir = null; };
 
   canvas.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') {
       activeTouchIds.add(event.pointerId);
       fingerLastX = event.clientX;
       fingerLastY = event.clientY;
+      if (activeTouchIds.size === 1) {
+        swipeStartX = event.clientX;
+        swipeStartY = event.clientY;
+        swipeDir = null;
+      } else {
+        // 2本指になったらスワイプ判定をキャンセル
+        swipeDir = 'v';
+      }
       return;
     }
     event.preventDefault();
@@ -2233,8 +2246,21 @@ function bindDrawingEvents(canvas) {
   canvas.addEventListener('pointermove', (event) => {
     if (event.pointerType === 'touch') {
       if (activeTouchIds.size === 1 && activeTouchIds.has(event.pointerId)) {
-        readerStage.scrollLeft -= event.clientX - fingerLastX;
-        readerStage.scrollTop -= event.clientY - fingerLastY;
+        const dx = event.clientX - fingerLastX;
+        const dy = event.clientY - fingerLastY;
+        const totalDx = event.clientX - swipeStartX;
+        const totalDy = event.clientY - swipeStartY;
+
+        // 12px 動いた時点で横か縦かを確定
+        if (swipeDir === null && Math.abs(totalDx) + Math.abs(totalDy) > 12) {
+          swipeDir = Math.abs(totalDx) > Math.abs(totalDy) ? 'h' : 'v';
+        }
+
+        if (swipeDir !== 'h') {
+          // 縦スクロール (または未確定時も仮スクロール)
+          readerStage.scrollLeft -= dx;
+          readerStage.scrollTop -= dy;
+        }
       }
       fingerLastX = event.clientX;
       fingerLastY = event.clientY;
@@ -2248,7 +2274,21 @@ function bindDrawingEvents(canvas) {
 
   canvas.addEventListener('pointerup', (event) => {
     if (event.pointerType === 'touch') {
+      if (
+        activeTouchIds.size === 1 &&
+        activeTouchIds.has(event.pointerId) &&
+        swipeDir === 'h' &&
+        readerLayoutMode === 'single'
+      ) {
+        const totalDx = event.clientX - swipeStartX;
+        const threshold = Math.min(readerStage.clientWidth * 0.25, 100);
+        if (Math.abs(totalDx) >= threshold) {
+          // 右スワイプ → 次ページ、左スワイプ → 前ページ
+          moveReaderPage(totalDx > 0 ? 1 : -1);
+        }
+      }
       activeTouchIds.delete(event.pointerId);
+      resetSwipe();
       return;
     }
     stopDrawing();
@@ -2257,6 +2297,7 @@ function bindDrawingEvents(canvas) {
   canvas.addEventListener('pointerleave', (event) => {
     if (event.pointerType === 'touch') {
       activeTouchIds.delete(event.pointerId);
+      resetSwipe();
       return;
     }
     stopDrawing();
@@ -2265,6 +2306,7 @@ function bindDrawingEvents(canvas) {
   canvas.addEventListener('pointercancel', (event) => {
     if (event.pointerType === 'touch') {
       activeTouchIds.delete(event.pointerId);
+      resetSwipe();
       return;
     }
     stopDrawing();
