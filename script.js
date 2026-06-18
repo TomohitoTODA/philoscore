@@ -3403,10 +3403,18 @@ function getPinchDist(touches) {
 // Chrome は wheel+ctrlKey で処理するためここには来ない
 let gestureStartZoom = null;
 let gestureCommitTimer = null;
+let gestureScrollTop = 0;
+let gestureScrollLeft = 0;
+let gestureOriginX = 0;
+let gestureOriginY = 0;
 
 reader.addEventListener('gesturestart', (e) => {
   e.preventDefault();
   gestureStartZoom = readerZoom;
+  gestureScrollTop = readerStage.scrollTop;
+  gestureScrollLeft = readerStage.scrollLeft;
+  gestureOriginX = readerStage.clientWidth / 2;
+  gestureOriginY = readerStage.clientHeight / 2;
   clearTimeout(gestureCommitTimer);
   readerStage.style.transform = '';
   readerStage.style.transformOrigin = '';
@@ -3425,7 +3433,11 @@ reader.addEventListener('gesturechange', (e) => {
 reader.addEventListener('gestureend', (e) => {
   e.preventDefault();
   if (gestureStartZoom === null) return;
-  const base = gestureStartZoom;
+  const s = readerZoom / gestureStartZoom;
+  const ox = gestureOriginX;
+  const oy = gestureOriginY;
+  const baseScrollTop = gestureScrollTop;
+  const baseScrollLeft = gestureScrollLeft;
   gestureStartZoom = null;
   readerStage.style.transform = '';
   readerStage.style.transformOrigin = '';
@@ -3433,6 +3445,10 @@ reader.addEventListener('gestureend', (e) => {
   gestureCommitTimer = setTimeout(async () => {
     persistCurrentAnnotation();
     await renderReaderPage();
+    requestAnimationFrame(() => {
+      readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
+      readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
+    });
   }, 150);
 }, { passive: false });
 
