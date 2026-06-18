@@ -3374,11 +3374,9 @@ reader.addEventListener('wheel', (event) => {
     readerStage.style.transform = '';
     readerStage.style.transformOrigin = '';
     persistCurrentAnnotation();
-    await renderReaderPage();
-    requestAnimationFrame(() => {
-      void readerStage.scrollHeight; // force layout
-      readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
-      readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
+    await renderReaderPage(() => {
+      readerStage.scrollTop = Math.max(0, (baseScrollTop + oy) * s - oy);
+      readerStage.scrollLeft = Math.max(0, (baseScrollLeft + ox) * s - ox);
     });
   }, 200);
 }, { passive: false });
@@ -3445,11 +3443,9 @@ reader.addEventListener('gestureend', (e) => {
   clearTimeout(gestureCommitTimer);
   gestureCommitTimer = setTimeout(async () => {
     persistCurrentAnnotation();
-    await renderReaderPage();
-    requestAnimationFrame(() => {
-      void readerStage.scrollHeight; // force layout
-      readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
-      readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
+    await renderReaderPage(() => {
+      readerStage.scrollTop = Math.max(0, (baseScrollTop + oy) * s - oy);
+      readerStage.scrollLeft = Math.max(0, (baseScrollLeft + ox) * s - ox);
     });
   }, 150);
 }, { passive: false });
@@ -3499,11 +3495,9 @@ readerStage.addEventListener('touchend', (event) => {
     clearTimeout(pinchCommitTimer);
     pinchCommitTimer = setTimeout(async () => {
       persistCurrentAnnotation();
-      await renderReaderPage();
-      requestAnimationFrame(() => {
-        void readerStage.scrollHeight; // force layout
-        readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
-        readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
+      await renderReaderPage(() => {
+        readerStage.scrollTop = Math.max(0, (baseScrollTop + oy) * s - oy);
+        readerStage.scrollLeft = Math.max(0, (baseScrollLeft + ox) * s - ox);
       });
     }, 150);
   }
@@ -3889,7 +3883,7 @@ async function renderPreviewPage() {
   }
 }
 
-async function renderReaderPage() {
+async function renderReaderPage(onAppend = null) {
   if (!activeItem) {
     return;
   }
@@ -3916,6 +3910,7 @@ async function renderReaderPage() {
     cell.appendChild(image);
     readerGroup.appendChild(cell);
     readerStage.appendChild(readerGroup);
+    if (onAppend) onAppend();
     setupAnnotationCanvas();
     return;
   }
@@ -3959,6 +3954,7 @@ async function renderReaderPage() {
     }
 
     readerStage.appendChild(readerGroup);
+    if (onAppend) onAppend();
     setupAnnotationCanvas();
   } catch (error) {
     console.error('Failed to render reader PDF.', error);
