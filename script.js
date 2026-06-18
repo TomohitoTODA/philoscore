@@ -2291,8 +2291,8 @@ function bindDrawingEvents(canvas) {
         const totalDx = event.clientX - swipeStartX;
         const threshold = Math.min(readerStage.clientWidth * 0.25, 100);
         if (Math.abs(totalDx) >= threshold) {
-          // 右スワイプ → 次ページ、左スワイプ → 前ページ
-          moveReaderPage(totalDx > 0 ? 1 : -1);
+          // 右スワイプ → 前ページ、左スワイプ → 次ページ
+          moveReaderPage(totalDx > 0 ? -1 : 1);
         }
       }
       activeTouchIds.delete(event.pointerId);
