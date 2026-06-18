@@ -4384,6 +4384,9 @@ function bindTap(button, handler) {
     return;
   }
 
+  // Neutralize any inline onclick attribute so it doesn't double-fire alongside this listener.
+  button.onclick = null;
+
   let touched = false;
   button.addEventListener('touchend', (event) => {
     event.preventDefault();
