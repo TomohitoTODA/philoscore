@@ -93,6 +93,10 @@ const toolAccidentalButton = document.getElementById('toolAccidentalButton');
 const toolBowingButton = document.getElementById('toolBowingButton');
 const toolTextButton = document.getElementById('toolTextButton');
 const toolRedCircleButton = document.getElementById('toolRedCircleButton');
+const abPenBtn = document.getElementById('abPenBtn');
+const abMarkerBtn = document.getElementById('abMarkerBtn');
+const abEraserBtn = document.getElementById('abEraserBtn');
+const abTextBtn = document.getElementById('abTextBtn');
 const clearAnnotationButton = document.getElementById('clearAnnotationButton');
 const exportAnnotatedPdfButton = document.getElementById('exportAnnotatedPdfButton');
 const zoomOutButton = document.getElementById('zoomOutButton');
@@ -1695,6 +1699,10 @@ function applyActiveToolButtonState() {
   toolBowingButton.classList.toggle('active', activeTool === 'bowing');
   toolTextButton.classList.toggle('active', activeTool === 'textStamp');
   toolRedCircleButton.classList.toggle('active', activeTool === 'redCircle');
+  if (abPenBtn) abPenBtn.classList.toggle('active', activeTool === 'redPen');
+  if (abMarkerBtn) abMarkerBtn.classList.toggle('active', activeTool === 'marker');
+  if (abEraserBtn) abEraserBtn.classList.toggle('active', activeTool === 'eraser');
+  if (abTextBtn) abTextBtn.classList.toggle('active', activeTool === 'textStamp');
 }
 
 function setActiveTool(toolName) {
@@ -4744,6 +4752,10 @@ if (layoutScrollVBtn) {
 if (layoutScrollHBtn) {
   bindTap(layoutScrollHBtn, () => { setReaderLayoutMode('scrollH'); });
 }
+if (abPenBtn) bindTap(abPenBtn, () => setActiveTool('redPen'));
+if (abMarkerBtn) bindTap(abMarkerBtn, () => setActiveTool('marker'));
+if (abEraserBtn) bindTap(abEraserBtn, () => setActiveTool('eraser'));
+if (abTextBtn) bindTap(abTextBtn, () => setActiveTool('textStamp'));
 bindTap(metronomeWindowToggle, toggleMetronomeWindow);
 bindTap(tunerWindowToggle, toggleTunerWindow);
 

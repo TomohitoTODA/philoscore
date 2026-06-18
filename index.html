@@ -1848,6 +1848,11 @@
         display: none;
       }
 
+      /* 注釈バー: デスクトップでは非表示 */
+      #annotationBar {
+        display: none;
+      }
+
       .tuner-note-row {
         display: flex;
         align-items: center;
@@ -1914,10 +1919,6 @@
           bottom: auto;       /* 高さはコンテンツ分だけ */
           z-index: 40;        /* floating-panel(30)より上 */
           justify-content: flex-start;
-        }
-
-        #metronomeBeatIndicator {
-          display: none;
         }
 
         .right-rail {
@@ -2078,6 +2079,47 @@
         #toolFingerButton {
           display: none;
         }
+
+        /* 注釈バー: iPad で常時表示 */
+        #annotationBar {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          position: absolute;
+          top: 8px;
+          left: 244px;
+          right: 8px;
+          z-index: 32;
+          background: rgba(255, 255, 255, 0.96);
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          padding: 5px 10px;
+          pointer-events: auto;
+        }
+
+        .ab-btn {
+          border: 1px solid var(--line);
+          background: #fff;
+          border-radius: 8px;
+          padding: 6px 14px;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          color: var(--text);
+          min-width: 44px;
+          text-align: center;
+        }
+
+        .ab-btn.active {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+        }
+
+        /* 注釈ツールはパネルから非表示（バーに移動） */
+        .mobile-tools-panel .annotation-tools-section {
+          display: none;
+        }
       }
     </style>
   </head>
@@ -2202,7 +2244,6 @@
 
       <div class="reader-body">
         <aside class="left-rail">
-          <span id="metronomeBeatIndicator" class="beat-indicator">●○○○</span>
           <button id="mobileToolsToggle" class="mobile-tools-toggle" type="button">ツール ▾</button>
           <div class="mobile-tools-panel">
           <div class="reader-tools">
@@ -2210,7 +2251,7 @@
             <button id="tunerWindowToggle" class="ghost-button" type="button" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()">チューナー</button>
           </div>
 
-          <div class="reader-tools">
+          <div class="reader-tools annotation-tools-section">
             <div class="tool-group">
               <span>注釈ツール</span>
               <div class="annotation-tool-grid">
@@ -2264,6 +2305,13 @@
 
         </aside>
 
+        <div id="annotationBar" class="annotation-bar">
+          <button id="abPenBtn" class="ab-btn active" type="button">ペ</button>
+          <button id="abMarkerBtn" class="ab-btn" type="button">マ</button>
+          <button id="abEraserBtn" class="ab-btn" type="button">ケ</button>
+          <button id="abTextBtn" class="ab-btn" type="button">テ</button>
+        </div>
+
         <aside class="right-rail"></aside>
 
         <div class="reader-main">
@@ -2277,6 +2325,7 @@
               </div>
             </div>
           </div>
+          <span id="metronomeBeatIndicator" class="beat-indicator">●○○○</span>
           <div id="metronomeMarking" class="metro-marking">Andante</div>
           <div class="metro-bpm-row">
             <button id="metronomeMinusButton" class="metro-adjust" type="button">−</button>
@@ -2359,6 +2408,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260618-29" defer></script>
+    <script src="script.js?v=20260618-30" defer></script>
   </body>
 </html>
