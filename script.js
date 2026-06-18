@@ -101,7 +101,7 @@ const abColorSizePanel = document.getElementById('abColorSizePanel');
 const abColorCustomBtn = document.getElementById('abColorCustomBtn');
 const abColorInput = document.getElementById('abColorInput');
 const abPenInk = document.getElementById('abPenInk');
-const abMarkerInk = document.getElementById('abMarkerInk');
+// abMarkerInk は廃止 → updateAbBar で .ab-marker-color を querySelectorAll で更新
 const clearAnnotationButton = document.getElementById('clearAnnotationButton');
 const exportAnnotatedPdfButton = document.getElementById('exportAnnotatedPdfButton');
 const zoomOutButton = document.getElementById('zoomOutButton');
@@ -1729,8 +1729,10 @@ function updateAbBar() {
   if (abPenInk) {
     abPenInk.setAttribute('fill', isPen ? toolMap.redPen.color : '#b0b0b0');
   }
-  if (abMarkerInk) {
-    abMarkerInk.setAttribute('fill', isMarker ? toolMap.marker.color : '#b0b0b0');
+  if (abMarkerBtn) {
+    abMarkerBtn.querySelectorAll('.ab-marker-color').forEach(el => {
+      el.setAttribute('fill', isMarker ? toolMap.marker.color : '#b0b0b0');
+    });
   }
 
   if (!isColorTool) return;
