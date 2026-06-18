@@ -3342,6 +3342,7 @@ async function setReaderZoom(nextZoom) {
 
 reader.addEventListener('wheel', (event) => {
   if (!event.ctrlKey || reader.style.display === 'none' || !activeItem) return;
+  if (gestureStartZoom !== null) return;  // Safari gesturechange が処理中
   event.preventDefault();
 
   if (wheelBaseZoom === null) {
@@ -3398,10 +3399,42 @@ function getPinchDist(touches) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Safari 独自イベントでブラウザズームを完全にブロック
-['gesturestart', 'gesturechange', 'gestureend'].forEach((name) => {
-  reader.addEventListener(name, (e) => e.preventDefault(), { passive: false });
-});
+// Safari / Mac トラックパッドのピンチズームを gesturechange で処理
+// Chrome は wheel+ctrlKey で処理するためここには来ない
+let gestureStartZoom = null;
+let gestureCommitTimer = null;
+
+reader.addEventListener('gesturestart', (e) => {
+  e.preventDefault();
+  gestureStartZoom = readerZoom;
+  clearTimeout(gestureCommitTimer);
+  readerStage.style.transform = '';
+  readerStage.style.transformOrigin = '';
+}, { passive: false });
+
+reader.addEventListener('gesturechange', (e) => {
+  e.preventDefault();
+  if (gestureStartZoom === null) return;
+  const next = clampZoom(gestureStartZoom * e.scale);
+  readerZoom = next;
+  updateZoomLabel();
+  readerStage.style.transformOrigin = 'center center';
+  readerStage.style.transform = `scale(${next / gestureStartZoom})`;
+}, { passive: false });
+
+reader.addEventListener('gestureend', (e) => {
+  e.preventDefault();
+  if (gestureStartZoom === null) return;
+  const base = gestureStartZoom;
+  gestureStartZoom = null;
+  readerStage.style.transform = '';
+  readerStage.style.transformOrigin = '';
+  clearTimeout(gestureCommitTimer);
+  gestureCommitTimer = setTimeout(async () => {
+    persistCurrentAnnotation();
+    await renderReaderPage();
+  }, 150);
+}, { passive: false });
 
 readerStage.addEventListener('touchstart', (event) => {
   if (event.touches.length === 2) {
