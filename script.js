@@ -3376,6 +3376,7 @@ reader.addEventListener('wheel', (event) => {
     persistCurrentAnnotation();
     await renderReaderPage();
     requestAnimationFrame(() => {
+      void readerStage.scrollHeight; // force layout
       readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
       readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
     });
@@ -3446,6 +3447,7 @@ reader.addEventListener('gestureend', (e) => {
     persistCurrentAnnotation();
     await renderReaderPage();
     requestAnimationFrame(() => {
+      void readerStage.scrollHeight; // force layout
       readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
       readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
     });
@@ -3498,8 +3500,8 @@ readerStage.addEventListener('touchend', (event) => {
     pinchCommitTimer = setTimeout(async () => {
       persistCurrentAnnotation();
       await renderReaderPage();
-      // wheel zoom と同じ式でスクロール位置を復元
       requestAnimationFrame(() => {
+        void readerStage.scrollHeight; // force layout
         readerStage.scrollTop = (baseScrollTop + oy) * s - oy;
         readerStage.scrollLeft = (baseScrollLeft + ox) * s - ox;
       });
