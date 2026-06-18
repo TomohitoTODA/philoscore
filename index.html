@@ -2392,39 +2392,27 @@
         </aside>
 
         <div id="annotationBar" class="annotation-bar">
-          <!-- ペンボタン (SVGアイコン: 色付き先端) -->
+          <!-- ペンボタン (Figmaアイコン: 色付き部分が選択色に変わる) -->
           <button id="abPenBtn" class="ab-btn active" type="button" aria-label="ペン">
-            <svg viewBox="0 0 20 22" width="20" height="20" fill="none" aria-hidden="true">
-              <rect x="7" y="1" width="6" height="2.5" rx="1" fill="#c8c8c8"/>
-              <rect x="7.5" y="3.5" width="5" height="1.5" fill="#a8a8a8"/>
-              <rect x="7" y="5" width="6" height="9" rx="0.5" fill="#e8d8a0"/>
-              <path d="M7 14 L10 21 L13 14Z" id="abPenInk" fill="#d32f2f"/>
+            <svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+              <path class="ab-pen-color" d="M49.6985 351.026L131.016 302.236L85.0539 256.274L36.2635 337.591L49.6985 351.026Z" fill="#b0b0b0"/>
+              <path class="ab-pen-color" d="M205.262 37.0711L212.333 30L357.29 174.957L350.219 182.028L290.115 206.777L180.513 97.1752L205.262 37.0711Z" fill="#b0b0b0"/>
+              <path class="ab-pen-color" d="M364.361 340.323C372.645 340.323 379.361 347.038 379.361 355.323C379.361 363.607 372.645 370.323 364.361 370.323L134.361 370.323C126.077 370.323 119.361 363.607 119.361 355.323C119.361 347.038 126.077 340.323 134.361 340.323L364.361 340.323Z" fill="#b0b0b0" fill-opacity="0.45"/>
+              <path d="M49.6985 351.027L36.2635 337.591L85.0538 256.274L131.016 302.236L49.6985 351.027Z" stroke="black" stroke-width="26" stroke-linejoin="round"/>
+              <path d="M180.513 97.1751L152.229 125.459L77.9827 249.203L138.087 309.307L261.83 235.061L290.115 206.777M180.513 97.1751L290.115 206.777M180.513 97.1751L205.262 37.0711L212.333 30M290.115 206.777L350.219 182.028L357.29 174.957" stroke="black" stroke-width="26" stroke-linejoin="round"/>
             </svg>
           </button>
-          <!-- マーカーボタン (Figmaアイコン: 黄色部分が選択色に変わる) -->
+          <!-- マーカーボタン (Figmaアイコン: 色付き部分が選択色に変わる) -->
           <button id="abMarkerBtn" class="ab-btn" type="button" aria-label="マーカー">
             <svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <path class="ab-marker-color" d="M148.137 320.236L169.35 299.023L105.711 235.383L35 306.094L49.1421 320.236L148.137 320.236Z" fill="#b0b0b0"/>
-              <path class="ab-marker-color" d="M356.734 203.563L201.17 48L158.744 90.4264L158.744 107.397L297.337 245.99L314.307 245.99L356.734 203.563Z" fill="#b0b0b0"/>
-              <path class="ab-marker-color" d="M229.967 310L199.967 350L379.967 350L379.967 310L229.967 310Z" fill="#b0b0b0" fill-opacity="0.45"/>
-              <path d="M179.957 311.63L95.1041 226.777L123.388 198.492V141.924L264.81 283.345H208.241L179.957 311.63Z" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
-              <g filter="url(#filter0_d_15_4)">
-                <path d="M158.744 92.4264L155.208 88.8909C154.27 89.8286 153.744 91.1003 153.744 92.4264H158.744ZM153.744 106.569C153.744 109.33 155.982 111.569 158.744 111.569C161.505 111.569 163.744 109.33 163.744 106.569L158.744 106.569L153.744 106.569ZM314.307 247.99L314.307 252.99C315.633 252.99 316.905 252.463 317.843 251.525L314.307 247.99ZM300.165 242.99C297.404 242.99 295.165 245.228 295.165 247.99C295.165 250.751 297.404 252.99 300.165 252.99V247.99V242.99ZM201.17 50L197.635 46.4645L155.208 88.8909L158.744 92.4264L162.279 95.9619L204.706 53.5355L201.17 50ZM158.744 92.4264H153.744L153.744 106.569L158.744 106.569L163.744 106.569L163.744 92.4264H158.744ZM314.307 247.99L317.843 251.525L360.269 209.099L356.734 205.563L353.198 202.028L310.772 244.454L314.307 247.99ZM314.307 247.99L314.307 242.99L300.165 242.99V247.99V252.99L314.307 252.99L314.307 247.99Z" fill="black"/>
-              </g>
-              <path d="M169.35 301.023L151.673 318.701H52.6777L38.5356 304.558L105.711 237.383" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M158.744 106.569L123.388 141.924L264.81 283.345L300.165 247.99L158.744 106.569Z" fill="black" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
-              <defs>
-                <filter id="filter0_d_15_4" x="149.744" y="46.4645" width="214.525" height="214.525" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                  <feFlood flood-opacity="0" result="BackgroundImageFix"/>
-                  <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                  <feOffset dy="4"/>
-                  <feGaussianBlur stdDeviation="2"/>
-                  <feComposite in2="hardAlpha" operator="out"/>
-                  <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
-                  <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_15_4"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_15_4" result="shape"/>
-                </filter>
-              </defs>
+              <path class="ab-marker-color" d="M126.995 310.701L144.673 293.023L88.1041 236.454L28 296.558L42.1421 310.701L126.995 310.701Z" fill="#b0b0b0"/>
+              <path class="ab-marker-color" d="M339.127 197.563L183.563 42L141.137 84.4264L141.137 101.397L279.73 239.99L296.701 239.99L339.127 197.563Z" fill="#b0b0b0"/>
+              <path class="ab-marker-color" d="M189.36 308L162.36 344L382.361 344L382.361 308L189.36 308Z" fill="#b0b0b0" fill-opacity="0.45"/>
+              <path d="M105.782 133.924V190.492L73.962 222.312L158.815 307.165L190.635 275.345H247.203" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M141.137 84.4264L137.602 80.8909C136.664 81.8286 136.137 83.1003 136.137 84.4264H141.137ZM136.137 98.5685C136.137 101.33 138.376 103.569 141.137 103.569C143.898 103.569 146.137 101.33 146.137 98.5685L141.137 98.5685L136.137 98.5685ZM296.701 239.99L296.701 244.99C298.027 244.99 299.298 244.463 300.236 243.525L296.701 239.99ZM282.558 234.99C279.797 234.99 277.558 237.228 277.558 239.99C277.558 242.751 279.797 244.99 282.558 244.99V239.99V234.99ZM183.563 42L180.028 38.4645L137.602 80.8909L141.137 84.4264L144.673 87.9619L187.099 45.5355L183.563 42ZM141.137 84.4264H136.137L136.137 98.5685L141.137 98.5685L146.137 98.5685L146.137 84.4264H141.137ZM296.701 239.99L300.236 243.525L342.662 201.099L339.127 197.563L335.591 194.028L293.165 236.454L296.701 239.99ZM296.701 239.99L296.701 234.99L282.558 234.99V239.99V244.99L296.701 244.99L296.701 239.99Z" fill="black"/>
+              <path d="M144.673 293.023L126.995 310.701H42.1421L28 296.558L88.1041 236.454" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M105.782 133.924L141.137 98.5685L282.558 239.99L247.203 275.345" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M141.087 99.3262L119.873 120.539L261.295 261.961L282.508 240.748L141.087 99.3262Z" fill="black" stroke="black" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
           <!-- 消しゴムボタン -->
@@ -2556,6 +2544,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260618-43" defer></script>
+    <script src="script.js?v=20260618-44" defer></script>
   </body>
 </html>

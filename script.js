@@ -100,7 +100,7 @@ const abTextBtn = document.getElementById('abTextBtn');
 const abColorSizePanel = document.getElementById('abColorSizePanel');
 const abColorCustomBtn = document.getElementById('abColorCustomBtn');
 const abColorInput = document.getElementById('abColorInput');
-const abPenInk = document.getElementById('abPenInk');
+// abPenInk は廃止 → updateAbBar で .ab-pen-color を querySelectorAll で更新
 // abMarkerInk は廃止 → updateAbBar で .ab-marker-color を querySelectorAll で更新
 const clearAnnotationButton = document.getElementById('clearAnnotationButton');
 const exportAnnotatedPdfButton = document.getElementById('exportAnnotatedPdfButton');
@@ -1726,8 +1726,10 @@ function updateAbBar() {
   abColorSizePanel.classList.toggle('visible', isColorTool);
 
   // SVGアイコンのインク色: 選択中→ツールの色、非選択→グレー
-  if (abPenInk) {
-    abPenInk.setAttribute('fill', isPen ? toolMap.redPen.color : '#b0b0b0');
+  if (abPenBtn) {
+    abPenBtn.querySelectorAll('.ab-pen-color').forEach(el => {
+      el.setAttribute('fill', isPen ? toolMap.redPen.color : '#b0b0b0');
+    });
   }
   if (abMarkerBtn) {
     abMarkerBtn.querySelectorAll('.ab-marker-color').forEach(el => {
