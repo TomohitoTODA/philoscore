@@ -97,6 +97,11 @@ const abPenBtn = document.getElementById('abPenBtn');
 const abMarkerBtn = document.getElementById('abMarkerBtn');
 const abEraserBtn = document.getElementById('abEraserBtn');
 const abTextBtn = document.getElementById('abTextBtn');
+const abColorSizePanel = document.getElementById('abColorSizePanel');
+const abColorCustomBtn = document.getElementById('abColorCustomBtn');
+const abColorInput = document.getElementById('abColorInput');
+const abPenInk = document.getElementById('abPenInk');
+const abMarkerInk = document.getElementById('abMarkerInk');
 const clearAnnotationButton = document.getElementById('clearAnnotationButton');
 const exportAnnotatedPdfButton = document.getElementById('exportAnnotatedPdfButton');
 const zoomOutButton = document.getElementById('zoomOutButton');
@@ -311,8 +316,8 @@ let folderPickerAllowEmptySelection = false;
 let isRenderingList = false;
 
 const toolMap = {
-  redPen: { mode: 'draw', color: '#d32f2f', width: 2.4, alpha: 1 },
-  marker: { mode: 'draw', color: '#f4d400', width: 12, alpha: 0.32 },
+  redPen: { mode: 'draw', color: '#e53935', width: 2.4, alpha: 1 },
+  marker: { mode: 'draw', color: '#ffd600', width: 12, alpha: 0.32 },
   eraser: { mode: 'erase', color: '#000000', width: 28, alpha: 1 },
   finger: { mode: 'stamp', type: 'number', color: '#111111', size: 0.0168 },
   accidental: { mode: 'stamp', type: 'accidental', color: '#111111', size: 0.0286 },
@@ -320,6 +325,10 @@ const toolMap = {
   textStamp: { mode: 'stamp', type: 'freeText', color: '#111111', size: 0.0215 },
   redCircle: { mode: 'stamp', type: 'circle', color: '#d32f2f' },
 };
+
+const AB_COLORS = ['#e53935', '#1e88e5', '#212121', '#ffd600'];
+const AB_PEN_SIZES    = { S: 1.5, M: 2.4, L: 4 };
+const AB_MARKER_SIZES = { S: 8,   M: 12,  L: 18 };
 
 const stampImageSources = {
   sharp: '',
@@ -1703,6 +1712,43 @@ function applyActiveToolButtonState() {
   if (abMarkerBtn) abMarkerBtn.classList.toggle('active', activeTool === 'marker');
   if (abEraserBtn) abEraserBtn.classList.toggle('active', activeTool === 'eraser');
   if (abTextBtn) abTextBtn.classList.toggle('active', activeTool === 'textStamp');
+  updateAbBar();
+}
+
+function updateAbBar() {
+  if (!abColorSizePanel) return;
+
+  const isPen    = activeTool === 'redPen';
+  const isMarker = activeTool === 'marker';
+  const isColorTool = isPen || isMarker;
+
+  // カラー/サイズパネルの表示切替
+  abColorSizePanel.classList.toggle('visible', isColorTool);
+
+  // SVGアイコンのインク色: 選択中→ツールの色、非選択→グレー
+  if (abPenInk) {
+    abPenInk.setAttribute('fill', isPen ? toolMap.redPen.color : '#b0b0b0');
+  }
+  if (abMarkerInk) {
+    abMarkerInk.setAttribute('fill', isMarker ? toolMap.marker.color : '#b0b0b0');
+  }
+
+  if (!isColorTool) return;
+
+  const currentColor = toolMap[activeTool].color;
+  const currentWidth = toolMap[activeTool].width;
+
+  // カラードットの選択状態
+  abColorSizePanel.querySelectorAll('.ab-color[data-color]').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.color === currentColor);
+  });
+
+  // サイズドットの選択状態
+  const sizePresets = isPen ? AB_PEN_SIZES : AB_MARKER_SIZES;
+  const sizeKey = Object.entries(sizePresets).find(([, v]) => v === currentWidth)?.[0] ?? null;
+  abColorSizePanel.querySelectorAll('.ab-size').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.size === sizeKey);
+  });
 }
 
 function setActiveTool(toolName) {
@@ -4806,6 +4852,44 @@ if (abPenBtn) bindTap(abPenBtn, () => setActiveTool('redPen'));
 if (abMarkerBtn) bindTap(abMarkerBtn, () => setActiveTool('marker'));
 if (abEraserBtn) bindTap(abEraserBtn, () => setActiveTool('eraser'));
 if (abTextBtn) bindTap(abTextBtn, () => setActiveTool('textStamp'));
+
+// カラードット
+if (abColorSizePanel) {
+  abColorSizePanel.querySelectorAll('.ab-color[data-color]').forEach(btn => {
+    bindTap(btn, () => {
+      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      toolMap[activeTool].color = btn.dataset.color;
+      updateAbBar();
+    });
+  });
+
+  // カスタムカラー
+  if (abColorCustomBtn && abColorInput) {
+    bindTap(abColorCustomBtn, () => {
+      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      abColorInput.value = toolMap[activeTool].color;
+      abColorInput.click();
+    });
+    abColorInput.addEventListener('input', () => {
+      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      toolMap[activeTool].color = abColorInput.value;
+      updateAbBar();
+    });
+  }
+
+  // サイズドット
+  abColorSizePanel.querySelectorAll('.ab-size').forEach(btn => {
+    bindTap(btn, () => {
+      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      const sizePresets = activeTool === 'redPen' ? AB_PEN_SIZES : AB_MARKER_SIZES;
+      const size = sizePresets[btn.dataset.size];
+      if (size !== undefined) {
+        toolMap[activeTool].width = size;
+        updateAbBar();
+      }
+    });
+  });
+}
 bindTap(metronomeWindowToggle, toggleMetronomeWindow);
 bindTap(tunerWindowToggle, toggleTunerWindow);
 

@@ -2101,20 +2101,94 @@
           border: 1px solid var(--line);
           background: #fff;
           border-radius: 8px;
-          padding: 6px 14px;
-          font-size: 15px;
-          font-weight: 700;
+          padding: 5px 8px;
           cursor: pointer;
-          color: var(--text);
-          min-width: 44px;
-          text-align: center;
+          min-width: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
 
         .ab-btn.active {
-          background: var(--accent);
-          color: #fff;
-          border-color: var(--accent);
+          background: rgba(0, 0, 0, 0.07);
+          border-color: rgba(0, 0, 0, 0.25);
         }
+
+        /* カラー/サイズパネル */
+        .ab-cs-panel {
+          display: none;
+          align-items: center;
+          gap: 5px;
+          flex-shrink: 0;
+        }
+        .ab-cs-panel.visible { display: flex; }
+
+        .ab-cs-sep {
+          width: 1px;
+          height: 18px;
+          background: var(--line);
+          margin: 0 1px;
+          flex-shrink: 0;
+        }
+
+        .ab-color {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 2.5px solid transparent;
+          cursor: pointer;
+          padding: 0;
+          flex-shrink: 0;
+          outline: none;
+          box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
+          transition: border-color 0.12s;
+        }
+        .ab-color.selected {
+          border-color: rgba(0,0,0,0.55);
+          box-shadow: 0 0 0 2px #fff inset, 0 0 0 1px rgba(0,0,0,0.12);
+        }
+        .ab-color-custom {
+          background: #f5f5f5 !important;
+          border: 1.5px solid #ccc !important;
+          color: #555;
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1;
+          box-shadow: none !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        #abColorInput {
+          position: absolute;
+          width: 0; height: 0;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .ab-size {
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          padding: 5px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          flex-shrink: 0;
+        }
+        .ab-size.selected { background: rgba(0,0,0,0.07); }
+        .ab-size::after {
+          content: '';
+          display: block;
+          border-radius: 50%;
+          background: #999;
+        }
+        .ab-size.selected::after { background: #222; }
+        .ab-size[data-size="S"]::after { width: 5px;  height: 5px; }
+        .ab-size[data-size="M"]::after { width: 9px;  height: 9px; }
+        .ab-size[data-size="L"]::after { width: 14px; height: 14px; }
 
         /* 注釈ツールはパネルから非表示（バーに移動） */
         .mobile-tools-panel .annotation-tools-section {
@@ -2130,6 +2204,7 @@
           padding: 4px 8px;
           border-radius: 8px;
           white-space: nowrap;
+          flex-shrink: 0;
         }
       }
     </style>
@@ -2317,10 +2392,54 @@
         </aside>
 
         <div id="annotationBar" class="annotation-bar">
-          <button id="abPenBtn" class="ab-btn active" type="button">ペ</button>
-          <button id="abMarkerBtn" class="ab-btn" type="button">マ</button>
-          <button id="abEraserBtn" class="ab-btn" type="button">ケ</button>
-          <button id="abTextBtn" class="ab-btn" type="button">テ</button>
+          <!-- ペンボタン (SVGアイコン: 色付き先端) -->
+          <button id="abPenBtn" class="ab-btn active" type="button" aria-label="ペン">
+            <svg viewBox="0 0 20 22" width="20" height="20" fill="none" aria-hidden="true">
+              <rect x="7" y="1" width="6" height="2.5" rx="1" fill="#c8c8c8"/>
+              <rect x="7.5" y="3.5" width="5" height="1.5" fill="#a8a8a8"/>
+              <rect x="7" y="5" width="6" height="9" rx="0.5" fill="#e8d8a0"/>
+              <path d="M7 14 L10 21 L13 14Z" id="abPenInk" fill="#d32f2f"/>
+            </svg>
+          </button>
+          <!-- マーカーボタン (SVGアイコン: 色付きチップ) -->
+          <button id="abMarkerBtn" class="ab-btn" type="button" aria-label="マーカー">
+            <svg viewBox="0 0 20 22" width="20" height="20" fill="none" aria-hidden="true">
+              <rect x="5.5" y="1" width="9" height="3" rx="1.5" fill="#b8b8b8"/>
+              <rect x="6" y="4" width="8" height="9" rx="1" fill="#cccccc"/>
+              <rect x="6" y="13" width="8" height="7" rx="1.5" id="abMarkerInk" fill="#b0b0b0"/>
+            </svg>
+          </button>
+          <!-- 消しゴムボタン -->
+          <button id="abEraserBtn" class="ab-btn" type="button" aria-label="消しゴム">
+            <svg viewBox="0 0 22 16" width="22" height="16" fill="none" aria-hidden="true">
+              <rect x="1" y="3" width="20" height="10" rx="2.5" fill="#f5e0e0"/>
+              <rect x="1" y="3" width="7" height="10" rx="2.5" fill="#e09090"/>
+              <rect x="1" y="10" width="20" height="2" fill="rgba(255,255,255,0.5)"/>
+              <rect x="1" y="3" width="20" height="10" rx="2.5" fill="none" stroke="#bbbbbb" stroke-width="1"/>
+            </svg>
+          </button>
+          <!-- テキストボタン -->
+          <button id="abTextBtn" class="ab-btn" type="button" aria-label="テキスト">
+            <svg viewBox="0 0 20 22" width="20" height="20" fill="none" aria-hidden="true">
+              <path d="M3 5H17" stroke="#777" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M10 5V19" stroke="#777" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <!-- カラー/サイズパネル (ペン・マーカー選択時のみ表示) -->
+          <div id="abColorSizePanel" class="ab-cs-panel">
+            <button class="ab-color" data-color="#e53935" style="background:#e53935" type="button" aria-label="赤"></button>
+            <button class="ab-color" data-color="#1e88e5" style="background:#1e88e5" type="button" aria-label="青"></button>
+            <button class="ab-color" data-color="#212121" style="background:#212121" type="button" aria-label="黒"></button>
+            <button class="ab-color" data-color="#ffd600" style="background:#ffd600" type="button" aria-label="黄"></button>
+            <button id="abColorCustomBtn" class="ab-color ab-color-custom" type="button" aria-label="カスタム色">+</button>
+            <input type="color" id="abColorInput" value="#d32f2f" tabindex="-1" aria-hidden="true"/>
+            <div class="ab-cs-sep"></div>
+            <button class="ab-size" data-size="S" type="button" aria-label="細"></button>
+            <button class="ab-size" data-size="M" type="button" aria-label="中"></button>
+            <button class="ab-size" data-size="L" type="button" aria-label="太"></button>
+          </div>
+
           <span id="metronomeBeatIndicator" class="beat-indicator ab-beat">●○○○</span>
         </div>
 
@@ -2419,6 +2538,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260618-38" defer></script>
+    <script src="script.js?v=20260618-39" defer></script>
   </body>
 </html>
