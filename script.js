@@ -1720,12 +1720,14 @@ function updateAbBar() {
 
   const isPen    = activeTool === 'redPen';
   const isMarker = activeTool === 'marker';
+  const isEraser = activeTool === 'eraser';
+  const isText   = activeTool === 'textStamp';
   const isColorTool = isPen || isMarker;
 
   // カラー/サイズパネルの表示切替
   abColorSizePanel.classList.toggle('visible', isColorTool);
 
-  // SVGアイコンのインク色: 選択中→ツールの色、非選択→グレー
+  // ペン・マーカー: 選択色 or グレー
   if (abPenBtn) {
     abPenBtn.querySelectorAll('.ab-pen-color').forEach(el => {
       el.setAttribute('fill', isPen ? toolMap.redPen.color : '#b0b0b0');
@@ -1736,6 +1738,17 @@ function updateAbBar() {
       el.setAttribute('fill', isMarker ? toolMap.marker.color : '#b0b0b0');
     });
   }
+
+  // 消しゴム・テキスト: 選択時→固有色、非選択→白
+  const applyFixedColor = (btn, className, isActive) => {
+    if (!btn) return;
+    btn.querySelectorAll(`.${className}`).forEach(el => {
+      const attr = el.dataset.colorAttr || 'fill';
+      el.setAttribute(attr, isActive ? el.dataset.activeColor : '#ffffff');
+    });
+  };
+  applyFixedColor(abEraserBtn, 'ab-eraser-color', isEraser);
+  applyFixedColor(abTextBtn, 'ab-text-color', isText);
 
   if (!isColorTool) return;
 
