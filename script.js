@@ -2312,6 +2312,7 @@ function bindDrawingEvents(canvas) {
   let fingerLastY = 0;
   let swipeStartX = 0;
   let swipeStartY = 0;
+  let swipeStartScrollLeft = 0;
   let swipeDir = null; // 'h' (horizontal/swipe) | 'v' (vertical/scroll) | null
 
   const resetSwipe = () => { swipeDir = null; };
@@ -2324,6 +2325,7 @@ function bindDrawingEvents(canvas) {
       if (activeTouchIds.size === 1) {
         swipeStartX = event.clientX;
         swipeStartY = event.clientY;
+        swipeStartScrollLeft = readerStage.scrollLeft;
         swipeDir = null;
       } else {
         // 2本指になったらスワイプ判定をキャンセル
@@ -2359,10 +2361,14 @@ function bindDrawingEvents(canvas) {
           swipeDir = Math.abs(totalDx) > Math.abs(totalDy) ? 'h' : 'v';
         }
 
+        const stageIsScrollableH = readerStage.scrollWidth > readerStage.clientWidth + 2;
         if (swipeDir !== 'h') {
           // 縦スクロール (または未確定時も仮スクロール)
           readerStage.scrollLeft -= dx;
           readerStage.scrollTop -= dy;
+        } else if (stageIsScrollableH) {
+          // ズーム中: 横スワイプでページ内を横移動
+          readerStage.scrollLeft -= dx;
         }
       }
       fingerLastX = event.clientX;
@@ -2388,9 +2394,25 @@ function bindDrawingEvents(canvas) {
       ) {
         const totalDx = event.clientX - swipeStartX;
         const threshold = Math.min(readerStage.clientWidth * 0.25, 100);
-        if (Math.abs(totalDx) >= threshold) {
+
+        // ズーム中: スクロールで消費した分を差し引き、端に到達した余剰分でページ捲り判定
+        const stageIsScrollableH = readerStage.scrollWidth > readerStage.clientWidth + 2;
+        let effectiveDx = totalDx;
+        if (stageIsScrollableH) {
+          if (totalDx > 0) {
+            // 右スワイプ: scrollLeft が左端に向かって減った分を消費とみなす
+            const scrollConsumed = Math.max(0, swipeStartScrollLeft - readerStage.scrollLeft);
+            effectiveDx = Math.max(0, totalDx - scrollConsumed);
+          } else {
+            // 左スワイプ: scrollLeft が右端に向かって増えた分を消費とみなす
+            const scrollConsumed = Math.max(0, readerStage.scrollLeft - swipeStartScrollLeft);
+            effectiveDx = Math.min(0, totalDx + scrollConsumed);
+          }
+        }
+
+        if (Math.abs(effectiveDx) >= threshold) {
           // 右スワイプ → 前ページ、左スワイプ → 次ページ
-          moveReaderPage(totalDx > 0 ? -1 : 1);
+          moveReaderPage(effectiveDx > 0 ? -1 : 1);
         }
       }
       activeTouchIds.delete(event.pointerId);
