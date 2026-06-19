@@ -1810,12 +1810,20 @@ function updateAbBar() {
     });
   }
 
-  // サイズドットの選択状態
+  // サイズドットの選択状態 + 消しゴム時はドットサイズを実際のサイズに比例表示
   const sizePresets = isPen ? AB_PEN_SIZES : isMarker ? AB_MARKER_SIZES : AB_ERASER_SIZES;
   const currentWidth = toolMap[activeTool].width;
   const sizeKey = Object.entries(sizePresets).find(([, v]) => v === currentWidth)?.[0] ?? null;
   abColorSizePanel.querySelectorAll('.ab-size').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.size === sizeKey);
+    if (isEraser) {
+      // AB_ERASER_SIZES.L (最大) を 20px のドットに対応させ比例スケール
+      const sz = AB_ERASER_SIZES[btn.dataset.size] ?? 0;
+      const dot = Math.round((sz / AB_ERASER_SIZES.L) * 20);
+      btn.style.setProperty('--dot-sz', `${dot}px`);
+    } else {
+      btn.style.removeProperty('--dot-sz');
+    }
   });
 }
 
@@ -2466,8 +2474,9 @@ function bindDrawingEvents(canvas) {
 
   canvas.addEventListener('pointerleave', (event) => {
     if (event.pointerType === 'touch') {
-      activeTouchIds.delete(event.pointerId);
-      resetSwipe();
+      // 暗黙のポインターキャプチャにより touchのpointermoveはcanvas外でも届く。
+      // ここで削除するとキャンバス境界を越えた瞬間にスクロールが止まるため、
+      // クリーンアップは pointerup / pointercancel に任せる。
       return;
     }
     hideEraserCursor();

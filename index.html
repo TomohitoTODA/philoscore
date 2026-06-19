@@ -2192,6 +2192,11 @@
         /* 消しゴム選択時: カラードットとセパレーターを隠す */
         .ab-cs-panel.size-only .ab-color,
         .ab-cs-panel.size-only .ab-cs-sep { display: none; }
+        /* 消しゴムの丸はJSでセットしたCSS変数で実際のサイズに比例表示 */
+        .ab-cs-panel.size-only .ab-size::after {
+          width: var(--dot-sz);
+          height: var(--dot-sz);
+        }
 
         /* 消しゴムカーソル円 */
         #eraserCursor {
@@ -2573,6 +2578,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-54" defer></script>
+    <script src="script.js?v=20260619-55" defer></script>
   </body>
 </html>
