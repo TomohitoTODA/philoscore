@@ -348,6 +348,35 @@ function hideEraserCursor() {
   eraserCursorEl.style.display = 'none';
 }
 
+// ── 慣性スクロール (ズーム中横スワイプ) ───────────────────────────────────────
+let _momentumAnimId = null;
+
+function cancelMomentum() {
+  if (_momentumAnimId !== null) {
+    cancelAnimationFrame(_momentumAnimId);
+    _momentumAnimId = null;
+  }
+}
+
+function startMomentumScroll(initialVelPxMs) {
+  cancelMomentum();
+  // 速度上限: 2px/ms (= 120px/frame@60fps)
+  let vel = Math.max(-2, Math.min(2, initialVelPxMs));
+  let lastTime = performance.now();
+  function step(now) {
+    const dt = Math.min(now - lastTime, 32); // フレーム落ち時のジャンプ防止
+    lastTime = now;
+    vel *= Math.pow(0.90, dt / 16); // 1フレームごとに約10%減速
+    if (Math.abs(vel) < 0.1) { _momentumAnimId = null; return; }
+    const maxScroll = readerStage.scrollWidth - readerStage.clientWidth;
+    const next = Math.max(0, Math.min(maxScroll, readerStage.scrollLeft + vel * dt));
+    if (Math.abs(next - readerStage.scrollLeft) < 0.01) { _momentumAnimId = null; return; }
+    readerStage.scrollLeft = next;
+    _momentumAnimId = requestAnimationFrame(step);
+  }
+  _momentumAnimId = requestAnimationFrame(step);
+}
+
 const stampImageSources = {
   sharp: '',
   flat: '',
@@ -2314,11 +2343,14 @@ function bindDrawingEvents(canvas) {
   let swipeStartY = 0;
   let swipeStartScrollLeft = 0;
   let swipeDir = null; // 'h' (horizontal/swipe) | 'v' (vertical/scroll) | null
+  let velSamples = []; // 慣性スクロール用速度サンプル [{v, t}]
+  let lastVelTime = 0;
 
   const resetSwipe = () => { swipeDir = null; };
 
   canvas.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') {
+      cancelMomentum();
       activeTouchIds.add(event.pointerId);
       fingerLastX = event.clientX;
       fingerLastY = event.clientY;
@@ -2327,18 +2359,10 @@ function bindDrawingEvents(canvas) {
         swipeStartY = event.clientY;
         swipeStartScrollLeft = readerStage.scrollLeft;
         swipeDir = null;
+        velSamples = [];
       } else {
         // 2本指になったらスワイプ判定をキャンセル
         swipeDir = 'v';
-      }
-      return;
-    }
-    // Apple Pencil 側面ダブルタップ: button === 1
-    if (event.pointerType === 'pen' && event.button === 1) {
-      if (activeTool === 'eraser') {
-        setActiveTool(lastPenTool);
-      } else {
-        setActiveTool('eraser');
       }
       return;
     }
@@ -2369,6 +2393,15 @@ function bindDrawingEvents(canvas) {
         } else if (stageIsScrollableH) {
           // ズーム中: 横スワイプでページ内を横移動
           readerStage.scrollLeft -= dx;
+          // 慣性用: 速度サンプルを記録 (直近100ms分のみ保持)
+          const now = performance.now();
+          const dt = now - lastVelTime;
+          lastVelTime = now;
+          if (dt > 0 && dt < 150) {
+            velSamples.push({ v: -dx / dt, t: now });
+            const cutoff = now - 100;
+            velSamples = velSamples.filter(s => s.t >= cutoff);
+          }
         }
       }
       fingerLastX = event.clientX;
@@ -2410,13 +2443,22 @@ function bindDrawingEvents(canvas) {
           }
         }
 
+        let didFlip = false;
         if (Math.abs(effectiveDx) >= threshold) {
           // 右スワイプ → 前ページ、左スワイプ → 次ページ
           moveReaderPage(effectiveDx > 0 ? -1 : 1);
+          didFlip = true;
+        }
+
+        // ページ捲りしなかった場合は慣性スクロール開始
+        if (!didFlip && stageIsScrollableH && velSamples.length > 0) {
+          const avgVel = velSamples.reduce((sum, s) => sum + s.v, 0) / velSamples.length;
+          if (Math.abs(avgVel) > 0.15) startMomentumScroll(avgVel);
         }
       }
       activeTouchIds.delete(event.pointerId);
       resetSwipe();
+      velSamples = [];
       return;
     }
     stopDrawing();
@@ -4874,6 +4916,17 @@ document.addEventListener('keydown', (event) => {
 bindPreviewTrackingEvents();
 window.addEventListener('mouseup', stopDrawing);
 window.addEventListener('touchend', stopDrawing);
+
+// Apple Pencil ダブルタップ (side double-tap / barrel button): button===1
+// キャンバス上に限らずドキュメント全体で拾う
+document.addEventListener('pointerdown', (event) => {
+  if (event.pointerType !== 'pen' || event.button !== 1) return;
+  if (activeTool === 'eraser') {
+    setActiveTool(lastPenTool);
+  } else {
+    setActiveTool('eraser');
+  }
+}, { passive: true });
 
 applyActiveToolButtonState();
 applyLayoutButtonState();
