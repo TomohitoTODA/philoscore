@@ -2350,11 +2350,8 @@ function bindDrawingEvents(canvas) {
   let swipeStartX = 0;
   let swipeStartY = 0;
   let swipeStartScrollLeft = 0;
-  let swipeDir = null; // 'h' (horizontal/swipe) | 'v' (vertical/scroll) | null
   let velSamples = []; // 慣性スクロール用速度サンプル [{v, t}]
   let lastVelTime = 0;
-
-  const resetSwipe = () => { swipeDir = null; };
 
   canvas.addEventListener('pointerdown', (event) => {
     if (event.pointerType === 'touch') {
@@ -2366,11 +2363,7 @@ function bindDrawingEvents(canvas) {
         swipeStartX = event.clientX;
         swipeStartY = event.clientY;
         swipeStartScrollLeft = readerStage.scrollLeft;
-        swipeDir = null;
         velSamples = [];
-      } else {
-        // 2本指になったらスワイプ判定をキャンセル
-        swipeDir = 'v';
       }
       return;
     }
@@ -2385,23 +2378,14 @@ function bindDrawingEvents(canvas) {
       if (activeTouchIds.size === 1 && activeTouchIds.has(event.pointerId)) {
         const dx = event.clientX - fingerLastX;
         const dy = event.clientY - fingerLastY;
-        const totalDx = event.clientX - swipeStartX;
-        const totalDy = event.clientY - swipeStartY;
 
-        // 12px 動いた時点で横か縦かを確定
-        if (swipeDir === null && Math.abs(totalDx) + Math.abs(totalDy) > 12) {
-          swipeDir = Math.abs(totalDx) > Math.abs(totalDy) ? 'h' : 'v';
-        }
+        // 方向ロックなし: 常に両軸スクロール
+        readerStage.scrollLeft -= dx;
+        readerStage.scrollTop -= dy;
 
+        // ズーム中の横慣性用: 速度サンプルを記録
         const stageIsScrollableH = readerStage.scrollWidth > readerStage.clientWidth + 2;
-        if (swipeDir !== 'h') {
-          // 縦スクロール (または未確定時も仮スクロール)
-          readerStage.scrollLeft -= dx;
-          readerStage.scrollTop -= dy;
-        } else if (stageIsScrollableH) {
-          // ズーム中: 横スワイプでページ内を横移動
-          readerStage.scrollLeft -= dx;
-          // 慣性用: 速度サンプルを記録 (直近100ms分のみ保持)
+        if (stageIsScrollableH) {
           const now = performance.now();
           const dt = now - lastVelTime;
           lastVelTime = now;
@@ -2427,45 +2411,39 @@ function bindDrawingEvents(canvas) {
 
   canvas.addEventListener('pointerup', (event) => {
     if (event.pointerType === 'touch') {
-      if (
-        activeTouchIds.size === 1 &&
-        activeTouchIds.has(event.pointerId) &&
-        swipeDir === 'h' &&
-        readerLayoutMode === 'single'
-      ) {
+      if (activeTouchIds.size === 1 && activeTouchIds.has(event.pointerId)) {
         const totalDx = event.clientX - swipeStartX;
-        const threshold = Math.min(readerStage.clientWidth * 0.25, 100);
-
-        // ズーム中: スクロールで消費した分を差し引き、端に到達した余剰分でページ捲り判定
+        const totalDy = event.clientY - swipeStartY;
         const stageIsScrollableH = readerStage.scrollWidth > readerStage.clientWidth + 2;
-        let effectiveDx = totalDx;
-        if (stageIsScrollableH) {
-          if (totalDx > 0) {
-            // 右スワイプ: scrollLeft が左端に向かって減った分を消費とみなす
-            const scrollConsumed = Math.max(0, swipeStartScrollLeft - readerStage.scrollLeft);
-            effectiveDx = Math.max(0, totalDx - scrollConsumed);
-          } else {
-            // 左スワイプ: scrollLeft が右端に向かって増えた分を消費とみなす
-            const scrollConsumed = Math.max(0, readerStage.scrollLeft - swipeStartScrollLeft);
-            effectiveDx = Math.min(0, totalDx + scrollConsumed);
+
+        let didFlip = false;
+        // ページ捲り: シングルモード + 横方向が縦より大きいジェスチャー
+        if (readerLayoutMode === 'single' && Math.abs(totalDx) > Math.abs(totalDy)) {
+          const threshold = Math.min(readerStage.clientWidth * 0.25, 100);
+          let effectiveDx = totalDx;
+          if (stageIsScrollableH) {
+            // ズーム中はスクロールで消費した分を差し引く
+            if (totalDx > 0) {
+              const scrollConsumed = Math.max(0, swipeStartScrollLeft - readerStage.scrollLeft);
+              effectiveDx = Math.max(0, totalDx - scrollConsumed);
+            } else {
+              const scrollConsumed = Math.max(0, readerStage.scrollLeft - swipeStartScrollLeft);
+              effectiveDx = Math.min(0, totalDx + scrollConsumed);
+            }
+          }
+          if (Math.abs(effectiveDx) >= threshold) {
+            moveReaderPage(effectiveDx > 0 ? -1 : 1);
+            didFlip = true;
           }
         }
 
-        let didFlip = false;
-        if (Math.abs(effectiveDx) >= threshold) {
-          // 右スワイプ → 前ページ、左スワイプ → 次ページ
-          moveReaderPage(effectiveDx > 0 ? -1 : 1);
-          didFlip = true;
-        }
-
-        // ページ捲りしなかった場合は慣性スクロール開始
+        // ページ捲りしなかった場合は横慣性スクロール開始
         if (!didFlip && stageIsScrollableH && velSamples.length > 0) {
           const avgVel = velSamples.reduce((sum, s) => sum + s.v, 0) / velSamples.length;
           if (Math.abs(avgVel) > 0.15) startMomentumScroll(avgVel);
         }
       }
       activeTouchIds.delete(event.pointerId);
-      resetSwipe();
       velSamples = [];
       return;
     }
@@ -2474,9 +2452,7 @@ function bindDrawingEvents(canvas) {
 
   canvas.addEventListener('pointerleave', (event) => {
     if (event.pointerType === 'touch') {
-      // 暗黙のポインターキャプチャにより touchのpointermoveはcanvas外でも届く。
-      // ここで削除するとキャンバス境界を越えた瞬間にスクロールが止まるため、
-      // クリーンアップは pointerup / pointercancel に任せる。
+      // 暗黙ポインターキャプチャでpointermoveはcanvas外でも届くためクリーンアップしない
       return;
     }
     hideEraserCursor();
@@ -2486,7 +2462,7 @@ function bindDrawingEvents(canvas) {
   canvas.addEventListener('pointercancel', (event) => {
     if (event.pointerType === 'touch') {
       activeTouchIds.delete(event.pointerId);
-      resetSwipe();
+      velSamples = [];
       return;
     }
     hideEraserCursor();
