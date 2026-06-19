@@ -330,14 +330,18 @@ const toolMap = {
 const AB_COLORS = ['#e53935', '#1e88e5', '#212121', '#ffd600'];
 const AB_PEN_SIZES    = { S: 1.5, M: 2.4, L: 4 };
 const AB_MARKER_SIZES = { S: 8,   M: 12,  L: 18 };
-const AB_ERASER_SIZES = { S: 10,  M: 20,  L: 40 };
+const AB_ERASER_SIZES = { S: 20,  M: 30,  L: 40 };
 
 const eraserCursorEl = document.createElement('div');
 eraserCursorEl.id = 'eraserCursor';
 document.body.appendChild(eraserCursorEl);
 
 function showEraserCursor(x, y) {
-  const d = toolMap.eraser.width;
+  let d = toolMap.eraser.width;
+  if (annotationCanvas && annotationCanvas.width > 0) {
+    const rect = annotationCanvas.getBoundingClientRect();
+    if (rect.width > 0) d = d * rect.width / annotationCanvas.width;
+  }
   eraserCursorEl.style.width = `${d}px`;
   eraserCursorEl.style.height = `${d}px`;
   eraserCursorEl.style.left = `${x}px`;
@@ -1780,12 +1784,12 @@ function updateAbBar() {
   // ペン・マーカー: 選択色 or グレー
   if (abPenBtn) {
     abPenBtn.querySelectorAll('.ab-pen-color').forEach(el => {
-      el.setAttribute('fill', isPen ? toolMap.redPen.color : '#b0b0b0');
+      el.setAttribute('fill', isPen ? toolMap.redPen.color : '#ffffff');
     });
   }
   if (abMarkerBtn) {
     abMarkerBtn.querySelectorAll('.ab-marker-color').forEach(el => {
-      el.setAttribute('fill', isMarker ? toolMap.marker.color : '#b0b0b0');
+      el.setAttribute('fill', isMarker ? toolMap.marker.color : '#ffffff');
     });
   }
 
