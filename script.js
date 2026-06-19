@@ -330,7 +330,7 @@ const toolMap = {
 const AB_COLORS = ['#e53935', '#1e88e5', '#212121', '#ffd600'];
 const AB_PEN_SIZES    = { S: 1.5, M: 2.4, L: 4 };
 const AB_MARKER_SIZES = { S: 8,   M: 12,  L: 18 };
-const AB_ERASER_SIZES = { S: 20,  M: 30,  L: 40 };
+const AB_ERASER_SIZES = { S: 40,  M: 60,  L: 80 };
 
 const eraserCursorEl = document.createElement('div');
 eraserCursorEl.id = 'eraserCursor';
