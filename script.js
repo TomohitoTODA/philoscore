@@ -413,6 +413,7 @@ const readerState = {
   pageCount: 1,
   viewGroups: [],
 };
+let readerRenderGen = 0;
 
 function baseTitle(fileName) {
   return fileName.replace(/\.[^.]+$/, '');
@@ -3951,6 +3952,8 @@ async function renderReaderPage(onAppend = null) {
     return;
   }
 
+  const myGen = ++readerRenderGen;
+
   if (activeItem.type === 'image') {
     readerState.viewGroups = [[1]];
     readerState.page = 1;
@@ -3980,6 +3983,8 @@ async function renderReaderPage(onAppend = null) {
 
   try {
     const pdf = await getPdfDocument(activeItem);
+    if (myGen !== readerRenderGen) return;
+
     const viewGroups = buildViewGroups(pdf.numPages, readerLayoutMode);
     readerState.viewGroups = viewGroups;
     readerState.pageCount = viewGroups.length;
@@ -4007,6 +4012,7 @@ async function renderReaderPage(onAppend = null) {
       const targetScale = 1.5 * readerZoom;
       const renderScale = Math.max(1.8, targetScale);
       const canvas = await renderPdfPageToCanvas(pdf, pageNumber, cell, renderScale);
+      if (myGen !== readerRenderGen) return;
       if (canvas) {
         // Keep render resolution high for clarity, but size by target zoom.
         const ratio = targetScale / renderScale;
