@@ -364,16 +364,16 @@ function cancelMomentum() {
 
 function startMomentumScroll(velX, velY) {
   cancelMomentum();
-  let vx = Math.max(-2, Math.min(2, velX));
-  let vy = Math.max(-2, Math.min(2, velY));
+  let vx = Math.max(-4, Math.min(4, velX));
+  let vy = Math.max(-4, Math.min(4, velY));
   let lastTime = performance.now();
   function step(now) {
     const dt = Math.min(now - lastTime, 32);
     lastTime = now;
-    const decay = Math.pow(0.90, dt / 16);
+    const decay = Math.pow(0.97, dt / 16); // iOSネイティブ相当の緩やかな減速
     vx *= decay;
     vy *= decay;
-    if (Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05) { _momentumAnimId = null; return; }
+    if (Math.abs(vx) < 0.02 && Math.abs(vy) < 0.02) { _momentumAnimId = null; return; }
     const maxLeft = readerStage.scrollWidth - readerStage.clientWidth;
     const maxTop = readerStage.scrollHeight - readerStage.clientHeight;
     readerStage.scrollLeft = Math.max(0, Math.min(maxLeft, readerStage.scrollLeft + vx * dt));
@@ -2442,9 +2442,17 @@ function bindDrawingEvents(canvas) {
 
         // ページ捲りしなかった場合は X/Y 慣性スクロール開始
         if (!didFlip && velSamples.length > 0) {
-          const avgVx = velSamples.reduce((sum, s) => sum + s.vx, 0) / velSamples.length;
-          const avgVy = velSamples.reduce((sum, s) => sum + s.vy, 0) / velSamples.length;
-          if (Math.abs(avgVx) > 0.15 || Math.abs(avgVy) > 0.15) startMomentumScroll(avgVx, avgVy);
+          // 直近サンプルほど重みを大きくして速度を推定
+          let wSumX = 0, wSumY = 0, wTotal = 0;
+          velSamples.forEach((s, i) => {
+            const w = i + 1;
+            wSumX += s.vx * w;
+            wSumY += s.vy * w;
+            wTotal += w;
+          });
+          const avgVx = wSumX / wTotal;
+          const avgVy = wSumY / wTotal;
+          if (Math.abs(avgVx) > 0.1 || Math.abs(avgVy) > 0.1) startMomentumScroll(avgVx, avgVy);
         }
       }
       activeTouchIds.delete(event.pointerId);
