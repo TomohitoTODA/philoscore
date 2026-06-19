@@ -286,6 +286,7 @@ let isMicTunerRunning = false;
 let tunerTargetNote = 'A';
 let tunerThresholdPercent = 100;
 let activeTool = 'redPen';
+let lastPenTool = 'redPen';
 let stampSizeMultiplier = 1.0;
 let stampSizeLevelIndex = 2;
 let readerZoom = 1;
@@ -318,7 +319,7 @@ let isRenderingList = false;
 const toolMap = {
   redPen: { mode: 'draw', color: '#e53935', width: 2.4, alpha: 1 },
   marker: { mode: 'draw', color: '#ffd600', width: 12, alpha: 0.32 },
-  eraser: { mode: 'erase', color: '#000000', width: 28, alpha: 1 },
+  eraser: { mode: 'erase', color: '#000000', width: 20, alpha: 1 },
   finger: { mode: 'stamp', type: 'number', color: '#111111', size: 0.0168 },
   accidental: { mode: 'stamp', type: 'accidental', color: '#111111', size: 0.0286 },
   bowing: { mode: 'stamp', type: 'bowing', color: '#111111', size: 0.0286 },
@@ -329,6 +330,23 @@ const toolMap = {
 const AB_COLORS = ['#e53935', '#1e88e5', '#212121', '#ffd600'];
 const AB_PEN_SIZES    = { S: 1.5, M: 2.4, L: 4 };
 const AB_MARKER_SIZES = { S: 8,   M: 12,  L: 18 };
+const AB_ERASER_SIZES = { S: 10,  M: 20,  L: 40 };
+
+const eraserCursorEl = document.createElement('div');
+eraserCursorEl.id = 'eraserCursor';
+document.body.appendChild(eraserCursorEl);
+
+function showEraserCursor(x, y) {
+  const d = toolMap.eraser.width;
+  eraserCursorEl.style.width = `${d}px`;
+  eraserCursorEl.style.height = `${d}px`;
+  eraserCursorEl.style.left = `${x}px`;
+  eraserCursorEl.style.top = `${y}px`;
+  eraserCursorEl.style.display = 'block';
+}
+function hideEraserCursor() {
+  eraserCursorEl.style.display = 'none';
+}
 
 const stampImageSources = {
   sharp: '',
@@ -1724,9 +1742,11 @@ function updateAbBar() {
   const isEraser = activeTool === 'eraser';
   const isText   = activeTool === 'textStamp';
   const isColorTool = isPen || isMarker;
+  const isSizeTool = isColorTool || isEraser;
 
   // カラー/サイズパネルの表示切替
-  abColorSizePanel.classList.toggle('visible', isColorTool);
+  abColorSizePanel.classList.toggle('visible', isSizeTool);
+  abColorSizePanel.classList.toggle('size-only', isEraser);
 
   // ペン・マーカー: 選択色 or グレー
   if (abPenBtn) {
@@ -1751,18 +1771,19 @@ function updateAbBar() {
   applyFixedColor(abEraserBtn, 'ab-eraser-color', isEraser);
   applyFixedColor(abTextBtn, 'ab-text-color', isText);
 
-  if (!isColorTool) return;
+  if (!isSizeTool) return;
 
-  const currentColor = toolMap[activeTool].color;
-  const currentWidth = toolMap[activeTool].width;
-
-  // カラードットの選択状態
-  abColorSizePanel.querySelectorAll('.ab-color[data-color]').forEach(btn => {
-    btn.classList.toggle('selected', btn.dataset.color === currentColor);
-  });
+  // カラードットの選択状態 (ペン・マーカーのみ)
+  if (isColorTool) {
+    const currentColor = toolMap[activeTool].color;
+    abColorSizePanel.querySelectorAll('.ab-color[data-color]').forEach(btn => {
+      btn.classList.toggle('selected', btn.dataset.color === currentColor);
+    });
+  }
 
   // サイズドットの選択状態
-  const sizePresets = isPen ? AB_PEN_SIZES : AB_MARKER_SIZES;
+  const sizePresets = isPen ? AB_PEN_SIZES : isMarker ? AB_MARKER_SIZES : AB_ERASER_SIZES;
+  const currentWidth = toolMap[activeTool].width;
   const sizeKey = Object.entries(sizePresets).find(([, v]) => v === currentWidth)?.[0] ?? null;
   abColorSizePanel.querySelectorAll('.ab-size').forEach(btn => {
     btn.classList.toggle('selected', btn.dataset.size === sizeKey);
@@ -1770,12 +1791,13 @@ function updateAbBar() {
 }
 
 function setActiveTool(toolName) {
-  if (!toolMap[toolName]) {
-    return;
+  if (!toolMap[toolName]) return;
+  if (toolName === 'redPen' || toolName === 'marker') {
+    lastPenTool = toolName;
   }
-
   activeTool = toolName;
   applyActiveToolButtonState();
+  if (toolName !== 'eraser') hideEraserCursor();
 }
 
 function setActiveAnnotationCanvas(canvas, pageNumber) {
@@ -2309,6 +2331,15 @@ function bindDrawingEvents(canvas) {
       }
       return;
     }
+    // Apple Pencil 側面ダブルタップ: button === 1
+    if (event.pointerType === 'pen' && event.button === 1) {
+      if (activeTool === 'eraser') {
+        setActiveTool(lastPenTool);
+      } else {
+        setActiveTool('eraser');
+      }
+      return;
+    }
     event.preventDefault();
     canvas.setPointerCapture(event.pointerId);
     activateCanvas();
@@ -2342,6 +2373,9 @@ function bindDrawingEvents(canvas) {
     activateCanvas();
     setLastAnnotationPoint(event, canvas);
     drawLine(event);
+    if (activeTool === 'eraser' && event.pointerType === 'pen') {
+      showEraserCursor(event.clientX, event.clientY);
+    }
   }, { passive: false });
 
   canvas.addEventListener('pointerup', (event) => {
@@ -2372,6 +2406,7 @@ function bindDrawingEvents(canvas) {
       resetSwipe();
       return;
     }
+    hideEraserCursor();
     stopDrawing();
   });
 
@@ -2381,6 +2416,7 @@ function bindDrawingEvents(canvas) {
       resetSwipe();
       return;
     }
+    hideEraserCursor();
     stopDrawing();
   });
 }
@@ -4903,8 +4939,8 @@ if (abColorSizePanel) {
   // サイズドット
   abColorSizePanel.querySelectorAll('.ab-size').forEach(btn => {
     bindTap(btn, () => {
-      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
-      const sizePresets = activeTool === 'redPen' ? AB_PEN_SIZES : AB_MARKER_SIZES;
+      if (activeTool !== 'redPen' && activeTool !== 'marker' && activeTool !== 'eraser') return;
+      const sizePresets = activeTool === 'redPen' ? AB_PEN_SIZES : activeTool === 'marker' ? AB_MARKER_SIZES : AB_ERASER_SIZES;
       const size = sizePresets[btn.dataset.size];
       if (size !== undefined) {
         toolMap[activeTool].width = size;

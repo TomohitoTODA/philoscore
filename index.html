@@ -2189,6 +2189,22 @@
         .ab-size[data-size="M"]::after { width: 9px;  height: 9px; }
         .ab-size[data-size="L"]::after { width: 14px; height: 14px; }
 
+        /* 消しゴム選択時: カラードットとセパレーターを隠す */
+        .ab-cs-panel.size-only .ab-color,
+        .ab-cs-panel.size-only .ab-cs-sep { display: none; }
+
+        /* 消しゴムカーソル円 */
+        #eraserCursor {
+          position: fixed;
+          pointer-events: none;
+          border-radius: 50%;
+          border: 1.5px solid rgba(128, 128, 128, 0.5);
+          background: rgba(128, 128, 128, 0.1);
+          display: none;
+          transform: translate(-50%, -50%);
+          z-index: 9999;
+        }
+
         /* 注釈ツールはパネルから非表示（バーに移動） */
         .mobile-tools-panel .annotation-tools-section {
           display: none;
@@ -2557,6 +2573,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-51" defer></script>
+    <script src="script.js?v=20260619-52" defer></script>
   </body>
 </html>
