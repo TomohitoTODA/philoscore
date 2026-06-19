@@ -2098,8 +2098,8 @@
         }
 
         .ab-btn {
-          border: 1px solid var(--line);
-          background: #fff;
+          border: none;
+          background: transparent;
           border-radius: 8px;
           padding: 5px 8px;
           cursor: pointer;
@@ -2112,7 +2112,6 @@
 
         .ab-btn.active {
           background: rgba(0, 0, 0, 0.07);
-          border-color: rgba(0, 0, 0, 0.25);
         }
 
         /* カラー/サイズパネル */
@@ -2394,7 +2393,7 @@
         <div id="annotationBar" class="annotation-bar">
           <!-- ペンボタン (Figmaアイコン: 色付き部分が選択色に変わる) -->
           <button id="abPenBtn" class="ab-btn active" type="button" aria-label="ペン">
-            <svg viewBox="0 0 400 400" width="130" height="130" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <path class="ab-pen-color" d="M49.6984 351.026L131.016 302.236L85.0538 256.274L36.2634 337.591L49.6984 351.026Z" fill="#b0b0b0"/>
               <path class="ab-pen-color" d="M205.262 37.0711L212.333 30L357.29 174.957L350.219 182.028L290.115 206.777L180.513 97.1752L205.262 37.0711Z" fill="#b0b0b0"/>
               <path class="ab-pen-color" d="M364.361 340.323C372.645 340.323 379.361 347.038 379.361 355.323C379.361 363.607 372.645 370.323 364.361 370.323L134.361 370.323C126.077 370.323 119.361 363.607 119.361 355.323C119.361 347.038 126.077 340.323 134.361 340.323L364.361 340.323Z" fill="#b0b0b0" fill-opacity="0.45"/>
@@ -2404,7 +2403,7 @@
           </button>
           <!-- マーカーボタン (Figmaアイコン: 色付き部分が選択色に変わる) -->
           <button id="abMarkerBtn" class="ab-btn" type="button" aria-label="マーカー">
-            <svg viewBox="0 0 400 400" width="130" height="130" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <path class="ab-marker-color" d="M110.393 336.767L128.071 319.09L71.5023 262.521L11.3982 322.625L25.5403 336.767L110.393 336.767Z" fill="#b0b0b0"/>
               <path class="ab-marker-color" d="M350.86 195.296L195.296 39.7324L152.869 82.1588L145.798 106.2L284.391 244.793L308.433 237.722L350.86 195.296Z" fill="#b0b0b0"/>
               <path class="ab-marker-color" d="M180.183 327.349L153.183 363.349L373.183 363.349L373.183 327.349L180.183 327.349Z" fill="#b0b0b0" fill-opacity="0.45"/>
@@ -2418,7 +2417,7 @@
           </button>
           <!-- 消しゴムボタン (Figmaアイコン: 選択時→固有色、非選択→白) -->
           <button id="abEraserBtn" class="ab-btn" type="button" aria-label="消しゴム">
-            <svg viewBox="0 0 400 400" width="130" height="130" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <g clip-path="url(#clip0_27_159)">
                 <path class="ab-eraser-color" data-active-color="#58B9FF" d="M346.198 140.066C357.914 151.782 357.914 170.777 346.198 182.492L296.701 231.99L183.563 118.853L233.061 69.3553C244.777 57.6396 263.772 57.6396 275.487 69.3553L346.198 140.066Z" fill="#ffffff"/>
                 <path class="ab-eraser-color" data-active-color="#FFF6F2" d="M289.63 239.061L182.793 345.898H127.766L63.3553 281.487C51.6396 269.772 51.6396 250.777 63.3553 239.061L176.492 125.924L289.63 239.061Z" fill="#ffffff"/>
@@ -2439,7 +2438,7 @@
           </button>
           <!-- テキストボタン (Figmaアイコン: 選択時→固有色、非選択→白) -->
           <button id="abTextBtn" class="ab-btn" type="button" aria-label="テキスト">
-            <svg viewBox="0 0 400 400" width="130" height="130" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
               <path class="ab-text-color" data-active-color="#BDE7A7" d="M330 290C330 306.569 316.569 320 300 320H90L89.2256 319.99C73.0149 319.579 60 306.31 60 290V110C60 93.4315 73.4315 80 90 80H300C316.569 80 330 93.4315 330 110V290Z" fill="#ffffff"/>
               <path d="M300 305V320H90V305H300ZM315 290V110C315 101.716 308.284 95 300 95H90C81.7157 95 75 101.716 75 110V290C75 298.284 81.7157 305 90 305V320L89.2256 319.99C73.0149 319.579 60 306.31 60 290V110C60 93.4315 73.4315 80 90 80H300C316.569 80 330 93.4315 330 110V290C330 306.31 316.985 319.579 300.774 319.99L300 320V305C308.284 305 315 298.284 315 290Z" fill="black"/>
               <path d="M255 145V135H205V270H215C220.523 270 225 274.477 225 280C225 285.523 220.523 290 215 290H175C169.477 290 165 285.523 165 280C165 274.477 169.477 270 175 270H185V135H135V145C135 150.523 130.523 155 125 155C119.477 155 115 150.523 115 145V125C115 119.477 119.477 115 125 115H265C270.523 115 275 119.477 275 125V145C275 150.523 270.523 155 265 155C259.477 155 255 150.523 255 145Z" fill="black"/>
@@ -2558,6 +2557,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-49" defer></script>
+    <script src="script.js?v=20260619-50" defer></script>
   </body>
 </html>
