@@ -285,6 +285,7 @@ let micTunerAnimationId = null;
 let isMicTunerRunning = false;
 let tunerTargetNote = 'A';
 let tunerThresholdPercent = 100;
+let tunerFreqHistory = []; // 時間的平滑化用の直近周波数履歴
 let activeTool = 'redPen';
 let lastPenTool = 'redPen';
 let stampSizeMultiplier = 1.0;
@@ -456,9 +457,8 @@ const previewState = {
 const previewScale = 0.8;
 
 const tunerThresholdBase = {
-  rms: 0.007,
-  correlation: 0.8,
-  level: 0.002,
+  rms: 0.002,
+  level: 0.001,
 };
 
 const readerState = {
@@ -3220,40 +3220,54 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
 }
 
 function autoCorrelatePitch(buffer, sampleRate) {
-  const thresholdFactor = getTunerThresholdFactor();
+  const N = buffer.length;
+
+  // 音量ゲート (感度向上: 0.007→0.002ベース、スライダーで調整可)
   let rms = 0;
-  for (let i = 0; i < buffer.length; i += 1) {
-    rms += buffer[i] * buffer[i];
-  }
-  rms = Math.sqrt(rms / buffer.length);
-  if (rms < tunerThresholdBase.rms * thresholdFactor) {
-    return -1;
+  for (let i = 0; i < N; i++) rms += buffer[i] * buffer[i];
+  rms = Math.sqrt(rms / N);
+  if (rms < tunerThresholdBase.rms * getTunerThresholdFactor()) return -1;
+
+  // バイオリン全弦カバー: G196Hz〜E高音域まで
+  const minLag = Math.floor(sampleRate / 1400);
+  const maxLag = Math.min(Math.floor(sampleRate / 60), Math.floor(N / 2) - 1);
+
+  // 信号パワー r[0] (正規化用)
+  let r0 = 0;
+  for (let i = 0; i < N; i++) r0 += buffer[i] * buffer[i];
+  r0 /= N;
+  if (r0 === 0) return -1;
+
+  // 正規化 ACF: r[lag] = Σ x[i]*x[i+lag] / (N-lag)
+  let bestLag = -1;
+  let bestCorr = 0;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let r = 0;
+    const len = N - lag;
+    for (let i = 0; i < len; i++) r += buffer[i] * buffer[i + lag];
+    r /= len;
+    if (r > bestCorr) { bestCorr = r; bestLag = lag; }
   }
 
-  let bestOffset = -1;
-  let bestCorrelation = 0;
-  const maxSamples = Math.floor(buffer.length / 2);
-  const minOffset = Math.floor(sampleRate / 1000); // ~1000Hz
-  const maxOffset = Math.floor(sampleRate / 70); // ~70Hz
+  // クラリティチェック: 信号パワー対比でピーク相関が弱すぎる場合は除外
+  if (bestLag === -1 || bestCorr / r0 < 0.45) return -1;
 
-  for (let offset = minOffset; offset <= maxOffset && offset < maxSamples; offset += 1) {
-    let correlation = 0;
-    for (let i = 0; i < maxSamples; i += 1) {
-      correlation += Math.abs(buffer[i] - buffer[i + offset]);
+  // 放物線補間でサブサンプル精度のラグを推定 (音高精度が大幅向上)
+  if (bestLag > minLag && bestLag < maxLag) {
+    let rM = 0, rP = 0;
+    const lenM = N - (bestLag - 1), lenP = N - (bestLag + 1);
+    for (let i = 0; i < lenM; i++) rM += buffer[i] * buffer[i + bestLag - 1];
+    rM /= lenM;
+    for (let i = 0; i < lenP; i++) rP += buffer[i] * buffer[i + bestLag + 1];
+    rP /= lenP;
+    const denom = rM - 2 * bestCorr + rP;
+    if (denom < 0) {
+      const shift = 0.5 * (rM - rP) / denom;
+      if (Math.abs(shift) < 1) bestLag += shift;
     }
-    correlation = 1 - correlation / maxSamples;
-
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestOffset = offset;
-    }
   }
 
-  if (bestCorrelation < Math.min(0.95, tunerThresholdBase.correlation * thresholdFactor) || bestOffset === -1) {
-    return -1;
-  }
-
-  return sampleRate / bestOffset;
+  return sampleRate / bestLag;
 }
 
 function stopMicTuner() {
@@ -3280,6 +3294,7 @@ function stopMicTuner() {
     micTunerStream = null;
   }
 
+  tunerFreqHistory = [];
   updateTunerNeedle(0, null);
   tunerReadout.textContent = `待機中 (${tunerTargetNote} ${violinTuningFrequencies[tunerTargetNote].toFixed(2)}Hz)`;
 }
@@ -3299,9 +3314,15 @@ function runMicTunerLoop() {
   const frequency = autoCorrelatePitch(sampleBuffer, audioContext.sampleRate);
 
   if (frequency > 0) {
-    const noteInfo = getNearestNoteInfo(frequency);
-    updateTunerNeedle(noteInfo.cents, frequency, noteInfo);
+    // 直近7フレームの中央値で針のブレを抑制
+    tunerFreqHistory.push(frequency);
+    if (tunerFreqHistory.length > 7) tunerFreqHistory.shift();
+    const sorted = [...tunerFreqHistory].sort((a, b) => a - b);
+    const stableFreq = sorted[Math.floor(sorted.length / 2)];
+    const noteInfo = getNearestNoteInfo(stableFreq);
+    updateTunerNeedle(noteInfo.cents, stableFreq, noteInfo);
   } else {
+    tunerFreqHistory = [];
     updateTunerNeedle(0, null);
     const levelText = rms > tunerThresholdBase.level * getTunerThresholdFactor()
       ? `入力あり: レベル ${(rms * 100).toFixed(1)}%`
