@@ -362,20 +362,22 @@ function cancelMomentum() {
   }
 }
 
-function startMomentumScroll(initialVelPxMs) {
+function startMomentumScroll(velX, velY) {
   cancelMomentum();
-  // 速度上限: 2px/ms (= 120px/frame@60fps)
-  let vel = Math.max(-2, Math.min(2, initialVelPxMs));
+  let vx = Math.max(-2, Math.min(2, velX));
+  let vy = Math.max(-2, Math.min(2, velY));
   let lastTime = performance.now();
   function step(now) {
-    const dt = Math.min(now - lastTime, 32); // フレーム落ち時のジャンプ防止
+    const dt = Math.min(now - lastTime, 32);
     lastTime = now;
-    vel *= Math.pow(0.90, dt / 16); // 1フレームごとに約10%減速
-    if (Math.abs(vel) < 0.1) { _momentumAnimId = null; return; }
-    const maxScroll = readerStage.scrollWidth - readerStage.clientWidth;
-    const next = Math.max(0, Math.min(maxScroll, readerStage.scrollLeft + vel * dt));
-    if (Math.abs(next - readerStage.scrollLeft) < 0.01) { _momentumAnimId = null; return; }
-    readerStage.scrollLeft = next;
+    const decay = Math.pow(0.90, dt / 16);
+    vx *= decay;
+    vy *= decay;
+    if (Math.abs(vx) < 0.05 && Math.abs(vy) < 0.05) { _momentumAnimId = null; return; }
+    const maxLeft = readerStage.scrollWidth - readerStage.clientWidth;
+    const maxTop = readerStage.scrollHeight - readerStage.clientHeight;
+    readerStage.scrollLeft = Math.max(0, Math.min(maxLeft, readerStage.scrollLeft + vx * dt));
+    readerStage.scrollTop  = Math.max(0, Math.min(maxTop,  readerStage.scrollTop  + vy * dt));
     _momentumAnimId = requestAnimationFrame(step);
   }
   _momentumAnimId = requestAnimationFrame(step);
@@ -2354,7 +2356,7 @@ function bindDrawingEvents(canvas) {
   let swipeStartX = 0;
   let swipeStartY = 0;
   let swipeStartScrollLeft = 0;
-  let velSamples = []; // 慣性スクロール用速度サンプル [{v, t}]
+  let velSamples = []; // 慣性スクロール用速度サンプル [{vx, vy, t}]
   let lastVelTime = 0;
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -2387,17 +2389,14 @@ function bindDrawingEvents(canvas) {
         readerStage.scrollLeft -= dx;
         readerStage.scrollTop -= dy;
 
-        // ズーム中の横慣性用: 速度サンプルを記録
-        const stageIsScrollableH = readerStage.scrollWidth > readerStage.clientWidth + 2;
-        if (stageIsScrollableH) {
-          const now = performance.now();
-          const dt = now - lastVelTime;
-          lastVelTime = now;
-          if (dt > 0 && dt < 150) {
-            velSamples.push({ v: -dx / dt, t: now });
-            const cutoff = now - 100;
-            velSamples = velSamples.filter(s => s.t >= cutoff);
-          }
+        // 慣性スクロール用: X/Y 両軸の速度サンプルを常に記録
+        const now = performance.now();
+        const dt = now - lastVelTime;
+        lastVelTime = now;
+        if (dt > 0 && dt < 150) {
+          velSamples.push({ vx: -dx / dt, vy: -dy / dt, t: now });
+          const cutoff = now - 100;
+          velSamples = velSamples.filter(s => s.t >= cutoff);
         }
       }
       fingerLastX = event.clientX;
@@ -2441,10 +2440,11 @@ function bindDrawingEvents(canvas) {
           }
         }
 
-        // ページ捲りしなかった場合は横慣性スクロール開始
-        if (!didFlip && stageIsScrollableH && velSamples.length > 0) {
-          const avgVel = velSamples.reduce((sum, s) => sum + s.v, 0) / velSamples.length;
-          if (Math.abs(avgVel) > 0.15) startMomentumScroll(avgVel);
+        // ページ捲りしなかった場合は X/Y 慣性スクロール開始
+        if (!didFlip && velSamples.length > 0) {
+          const avgVx = velSamples.reduce((sum, s) => sum + s.vx, 0) / velSamples.length;
+          const avgVy = velSamples.reduce((sum, s) => sum + s.vy, 0) / velSamples.length;
+          if (Math.abs(avgVx) > 0.15 || Math.abs(avgVy) > 0.15) startMomentumScroll(avgVx, avgVy);
         }
       }
       activeTouchIds.delete(event.pointerId);
