@@ -3544,8 +3544,6 @@ reader.addEventListener('wheel', (event) => {
 
     wheelBaseZoom = null;
     wheelBaseRect = null;
-    readerStage.style.transform = '';
-    readerStage.style.transformOrigin = '';
     persistCurrentAnnotation();
     await renderReaderPage(() => {
       readerStage.scrollTop = Math.max(0, (baseScrollTop + oy) * s - oy);
@@ -3611,8 +3609,6 @@ reader.addEventListener('gestureend', (e) => {
   const baseScrollTop = gestureScrollTop;
   const baseScrollLeft = gestureScrollLeft;
   gestureStartZoom = null;
-  readerStage.style.transform = '';
-  readerStage.style.transformOrigin = '';
   clearTimeout(gestureCommitTimer);
   gestureCommitTimer = setTimeout(async () => {
     persistCurrentAnnotation();
@@ -3663,8 +3659,6 @@ readerStage.addEventListener('touchend', (event) => {
     const baseScrollLeft = pinchScrollLeft;
     pinchStartDist = null;
     pinchStartZoom = null;
-    readerStage.style.transform = '';
-    readerStage.style.transformOrigin = '';
     clearTimeout(pinchCommitTimer);
     pinchCommitTimer = setTimeout(async () => {
       persistCurrentAnnotation();
@@ -4068,7 +4062,6 @@ async function renderReaderPage(onAppend = null) {
     readerState.page = 1;
     readerState.pageCount = 1;
     updateReaderPagerLabel(1);
-    readerStage.innerHTML = '';
     const readerGroup = document.createElement('div');
     readerGroup.className = 'reader-group';
     const cell = document.createElement('div');
@@ -4084,6 +4077,9 @@ async function renderReaderPage(onAppend = null) {
     }
     cell.appendChild(image);
     readerGroup.appendChild(cell);
+    readerStage.style.transform = '';
+    readerStage.style.transformOrigin = '';
+    readerStage.innerHTML = '';
     readerStage.appendChild(readerGroup);
     if (onAppend) onAppend();
     setupAnnotationCanvas();
@@ -4108,7 +4104,6 @@ async function renderReaderPage(onAppend = null) {
     updateReaderPagerLabel(pdf.numPages);
 
     const currentGroup = viewGroups[readerState.page - 1] || [1];
-    readerStage.innerHTML = '';
     const readerGroup = document.createElement('div');
     readerGroup.className = readerLayoutMode === 'scrollV'
       ? 'reader-group reader-group--vertical'
@@ -4131,6 +4126,10 @@ async function renderReaderPage(onAppend = null) {
       readerGroup.appendChild(cell);
     }
 
+    // レンダリング完了後に一括差し替え (変換クリア→旧コンテンツ削除→新コンテンツ表示)
+    readerStage.style.transform = '';
+    readerStage.style.transformOrigin = '';
+    readerStage.innerHTML = '';
     readerStage.appendChild(readerGroup);
     if (onAppend) onAppend();
     setupAnnotationCanvas();
