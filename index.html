@@ -1780,16 +1780,10 @@
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
       }
 
-      #metronomePanel {
-        top: 12px;
-        max-height: calc(50% - 20px);
-        overflow: hidden;
-      }
-
       #tunerPanel {
-        top: auto;
+        top: 56px;
         bottom: 16px;
-        max-height: calc(50% - 20px);
+        max-height: calc(100% - 72px);
       }
 
       .reader-stage {
@@ -1829,9 +1823,119 @@
         display: none;
       }
 
-      /* 注釈バー: デスクトップでは非表示 */
+      /* 注釈バー: デスクトップでも表示 */
       #annotationBar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        position: absolute;
+        top: 8px;
+        left: 246px;
+        right: 8px;
+        z-index: 32;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 5px 10px;
+        pointer-events: auto;
+      }
+
+      /* 注釈バー内のボタン・カラー・サイズ共通スタイル */
+      .ab-btn {
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        padding: 5px 8px;
+        cursor: pointer;
+        min-width: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .ab-btn.active { background: rgba(0, 0, 0, 0.07); }
+      .ab-cs-panel {
         display: none;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+      .ab-cs-panel.visible { display: flex; }
+      .ab-cs-sep {
+        width: 1px; height: 18px;
+        background: var(--line);
+        margin: 0 1px; flex-shrink: 0;
+      }
+      .ab-color {
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        border: 2.5px solid transparent;
+        cursor: pointer; padding: 0; flex-shrink: 0; outline: none;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
+        transition: border-color 0.12s;
+      }
+      .ab-color.selected {
+        border-color: rgba(0,0,0,0.55);
+        box-shadow: 0 0 0 2px #fff inset, 0 0 0 1px rgba(0,0,0,0.12);
+      }
+      .ab-color-custom {
+        background: #f5f5f5 !important;
+        border: 1.5px solid #ccc !important;
+        color: #555; font-size: 13px; font-weight: 800; line-height: 1;
+        box-shadow: none !important;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #abColorInput {
+        position: absolute; width: 0; height: 0;
+        opacity: 0; pointer-events: none;
+      }
+      .ab-size {
+        border: none; background: transparent; cursor: pointer;
+        padding: 5px; display: flex; align-items: center;
+        justify-content: center; border-radius: 6px; flex-shrink: 0;
+      }
+      .ab-size.selected { background: rgba(0,0,0,0.07); }
+      .ab-size::after {
+        content: ''; display: block; border-radius: 50%; background: #999;
+      }
+      .ab-size.selected::after { background: #222; }
+      .ab-size[data-size="S"]::after { width: 5px; height: 5px; }
+      .ab-size[data-size="M"]::after { width: 9px; height: 9px; }
+      .ab-size[data-size="L"]::after { width: 14px; height: 14px; }
+      .ab-cs-panel.size-only .ab-color,
+      .ab-cs-panel.size-only .ab-cs-sep { display: none; }
+      .ab-cs-panel.size-only .ab-size::after {
+        width: var(--dot-sz); height: var(--dot-sz);
+      }
+      #eraserCursor {
+        position: fixed; pointer-events: none; border-radius: 50%;
+        border: 1.5px solid rgba(128, 128, 128, 0.5);
+        background: rgba(128, 128, 128, 0.1);
+        display: none; transform: translate(-50%, -50%); z-index: 9999;
+      }
+      .ab-beat {
+        margin-left: auto; min-width: auto;
+        font-size: 13px; letter-spacing: 0.08em;
+        padding: 4px 8px; border-radius: 8px;
+        white-space: nowrap; flex-shrink: 0;
+      }
+
+      /* デスクトップ: left-rail の注釈ツールを非表示 */
+      .left-rail .annotation-tools-section { display: none; }
+
+      /* デスクトップ: メトロノームトグルボタンは不要（パネルは常時表示） */
+      #metronomeWindowToggle { display: none; }
+
+      /* デスクトップ: left-rail 内のメトロノームパネルはフローティング解除 */
+      .left-rail #metronomePanel {
+        position: static;
+        width: 100%;
+        max-height: none;
+        overflow: visible;
+        box-shadow: none;
+        left: auto;
+        top: auto;
+        bottom: auto;
       }
 
       .page-layer {
@@ -1942,15 +2046,10 @@
           max-height: calc(50dvh - 16px);
         }
 
-        /* チューナーは下半分、メトロノームは上半分に固定して重ならないようにする */
-        .floating-panel {
-          max-height: calc(50dvh - 16px);
-        }
-
         #tunerPanel {
-          top: calc(50dvh + 4px);
+          top: 8px;
           bottom: auto;
-          max-height: calc(50dvh - 16px);
+          max-height: calc(100dvh - 24px);
         }
 
         /* ツール toggle: ダークピル */
@@ -2384,6 +2483,54 @@
               <button id="readerNextButton" class="ghost-button" type="button">次へ</button>
             </div>
           </div>
+          <section id="metronomePanel" class="metronome-panel floating-panel feature-panel" aria-label="メトロノーム">
+            <div class="metro-swing">
+              <div class="metro-rail">
+                <div id="metronomeArm" class="metro-arm">
+                  <div id="metronomeWeight" class="metro-weight"></div>
+                </div>
+              </div>
+            </div>
+            <div id="metronomeMarking" class="metro-marking">Andante</div>
+            <div class="metro-bpm-row">
+              <button id="metronomeMinusButton" class="metro-adjust" type="button">−</button>
+              <div id="metronomeBpmValue" class="metro-bpm">100</div>
+              <button id="metronomePlusButton" class="metro-adjust" type="button">＋</button>
+            </div>
+            <div class="metro-options">
+              <div>
+                <div class="metro-option-title">拍子</div>
+                <div class="metro-option-grid">
+                  <button class="metro-option-btn" data-time-signature="1/4" type="button">1/4</button>
+                  <button class="metro-option-btn" data-time-signature="2/4" type="button">2/4</button>
+                  <button class="metro-option-btn" data-time-signature="3/4" type="button">3/4</button>
+                  <button class="metro-option-btn active" data-time-signature="4/4" type="button">4/4</button>
+                  <button class="metro-option-btn" data-time-signature="5/4" type="button">5/4</button>
+                  <button class="metro-option-btn" data-time-signature="6/4" type="button">6/4</button>
+                  <button class="metro-option-btn" data-time-signature="3/8" type="button">3/8</button>
+                  <button class="metro-option-btn" data-time-signature="6/8" type="button">6/8</button>
+                </div>
+              </div>
+              <div>
+                <div class="metro-option-title">リズム</div>
+                <div class="metro-option-grid">
+                  <button class="metro-option-btn rhythm-symbol lift-up active" data-rhythm="1x" type="button" aria-label="1回" title="1回">
+                    <img class="metro-rhythm-icon" src="assets/1.png" alt="" />
+                  </button>
+                  <button class="metro-option-btn rhythm-symbol lift-up" data-rhythm="2x" type="button" aria-label="2回" title="2回">
+                    <img class="metro-rhythm-icon" src="assets/2.png" alt="" />
+                  </button>
+                  <button class="metro-option-btn rhythm-symbol" data-rhythm="3x" type="button" aria-label="3回" title="3回">
+                    <img class="metro-rhythm-icon" src="assets/3.png" alt="" />
+                  </button>
+                  <button class="metro-option-btn rhythm-symbol lift-up" data-rhythm="4x" type="button" aria-label="4回" title="4回">
+                    <img class="metro-rhythm-icon" src="assets/4.png" alt="" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button id="metronomeToggleButton" class="metro-start" type="button">START</button>
+          </section>
           </div><!-- /.mobile-tools-panel -->
 
         </aside>
@@ -2466,55 +2613,6 @@
 
         <div class="reader-main">
         <div id="readerStage" class="reader-stage"></div>
-        <section id="metronomePanel" class="metronome-panel floating-panel feature-panel" aria-label="メトロノーム" hidden>
-          <button class="panel-close-btn" type="button" onclick="window.toggleMetronomeWindowFallback && window.toggleMetronomeWindowFallback()" aria-label="閉じる">✕</button>
-          <div class="metro-swing">
-            <div class="metro-rail">
-              <div id="metronomeArm" class="metro-arm">
-                <div id="metronomeWeight" class="metro-weight"></div>
-              </div>
-            </div>
-          </div>
-          <div id="metronomeMarking" class="metro-marking">Andante</div>
-          <div class="metro-bpm-row">
-            <button id="metronomeMinusButton" class="metro-adjust" type="button">−</button>
-            <div id="metronomeBpmValue" class="metro-bpm">100</div>
-            <button id="metronomePlusButton" class="metro-adjust" type="button">＋</button>
-          </div>
-          <div class="metro-options">
-            <div>
-              <div class="metro-option-title">拍子</div>
-              <div class="metro-option-grid">
-                <button class="metro-option-btn" data-time-signature="1/4" type="button">1/4</button>
-                <button class="metro-option-btn" data-time-signature="2/4" type="button">2/4</button>
-                <button class="metro-option-btn" data-time-signature="3/4" type="button">3/4</button>
-                <button class="metro-option-btn active" data-time-signature="4/4" type="button">4/4</button>
-                <button class="metro-option-btn" data-time-signature="5/4" type="button">5/4</button>
-                <button class="metro-option-btn" data-time-signature="6/4" type="button">6/4</button>
-                <button class="metro-option-btn" data-time-signature="3/8" type="button">3/8</button>
-                <button class="metro-option-btn" data-time-signature="6/8" type="button">6/8</button>
-              </div>
-            </div>
-            <div>
-              <div class="metro-option-title">リズム</div>
-              <div class="metro-option-grid">
-                <button class="metro-option-btn rhythm-symbol lift-up active" data-rhythm="1x" type="button" aria-label="1回" title="1回">
-                  <img class="metro-rhythm-icon" src="assets/1.png" alt="" />
-                </button>
-                <button class="metro-option-btn rhythm-symbol lift-up" data-rhythm="2x" type="button" aria-label="2回" title="2回">
-                  <img class="metro-rhythm-icon" src="assets/2.png" alt="" />
-                </button>
-                <button class="metro-option-btn rhythm-symbol" data-rhythm="3x" type="button" aria-label="3回" title="3回">
-                  <img class="metro-rhythm-icon" src="assets/3.png" alt="" />
-                </button>
-                <button class="metro-option-btn rhythm-symbol lift-up" data-rhythm="4x" type="button" aria-label="4回" title="4回">
-                  <img class="metro-rhythm-icon" src="assets/4.png" alt="" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <button id="metronomeToggleButton" class="metro-start" type="button">START</button>
-        </section>
         <div id="tunerPanel" class="tuner-panel floating-panel feature-panel" hidden>
           <button class="panel-close-btn" type="button" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()" aria-label="閉じる">✕</button>
           <button id="micTunerToggleButton" class="tuner-mic-btn" type="button" aria-label="マイクチューナー開始/停止">
@@ -2561,6 +2659,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-79" defer></script>
+    <script src="script.js?v=20260619-80" defer></script>
   </body>
 </html>
