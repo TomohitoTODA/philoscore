@@ -5211,17 +5211,20 @@ function handleTokenResponse(response) {
   loadFromDrive();
 }
 
-function initGoogleAuth() {
-  if (!window.google?.accounts?.oauth2) {
-    return;
-  }
+function initGoogleTokenClient() {
+  if (googleTokenClient || !window.google?.accounts?.oauth2) return false;
   googleTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: DRIVE_SCOPE,
     callback: handleTokenResponse,
   });
-  bindTap(loginButton, () => googleTokenClient.requestAccessToken());
+  return true;
+}
+
+function initGoogleAuth() {
+  initGoogleTokenClient();
   bindTap(logoutButton, () => {
+    if (!window.google?.accounts?.oauth2) return;
     google.accounts.oauth2.revoke(googleAccessToken, () => {});
     googleAccessToken = null;
     googleTokenExpiry = 0;
@@ -5229,6 +5232,19 @@ function initGoogleAuth() {
     driveMetadataFileId = null;
     driveAnnotationFileId = null;
     renderAuthUI();
+  });
+}
+
+// ログインボタンはスクリプト初期化時に直接リスナーを設定。
+// Google GSI の読み込みタイミングに依存しないよう、クリック時に遅延初期化する。
+if (loginButton) {
+  loginButton.addEventListener('click', () => {
+    if (!window.google?.accounts?.oauth2) {
+      alert('Google認証ライブラリが読み込まれていません。ページを再読み込みしてください。');
+      return;
+    }
+    initGoogleTokenClient();
+    googleTokenClient.requestAccessToken();
   });
 }
 
