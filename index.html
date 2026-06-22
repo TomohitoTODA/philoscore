@@ -1695,17 +1695,6 @@
         background: #fafafa;
       }
 
-      .tuner-note-display {
-        font-size: 56px;
-        font-weight: 800;
-        text-align: center;
-        line-height: 1;
-        margin: 6px 0 2px;
-        letter-spacing: -2px;
-        color: var(--sub);
-        transition: color 200ms ease;
-      }
-
       .tuner-direction {
         font-size: 13px;
         font-weight: 600;
@@ -1716,9 +1705,27 @@
         transition: color 200ms ease;
       }
 
-      .tuner-target {
-        font-size: 12px;
-        color: var(--sub);
+      .tuner-mic-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+        border: none;
+        background: #e8e8e8;
+        color: #444;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 8px;
+        transition: background 200ms ease, color 200ms ease;
+      }
+
+      .tuner-mic-btn.is-active {
+        background: #3a8c5c;
+        color: white;
       }
 
       .tuner-arc-container {
@@ -1737,44 +1744,7 @@
         transition: fill 120ms ease;
       }
 
-      .tuner-arc-mic {
-        position: absolute;
-        left: 50%;
-        top: 92%;
-        width: 58px;
-        height: 58px;
-        transform: translate(-50%, -50%);
-        border-radius: 50%;
-        background: #cccccc;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 0 9px rgba(0,0,0,0.07);
-        transition: background 200ms ease, box-shadow 200ms ease;
-        z-index: 10;
-      }
 
-      .tuner-arc-mic.is-active {
-        background: #3a8c5c;
-        box-shadow: 0 0 0 9px rgba(58,140,92,0.18);
-      }
-
-      .tuner-flat-label,
-      .tuner-sharp-label {
-        position: absolute;
-        top: 74%;
-        transform: translateY(-50%);
-        font-size: 20px;
-        color: #c8c8c8;
-        pointer-events: none;
-        font-weight: 700;
-        line-height: 1;
-      }
-
-      .tuner-flat-label { left: 4px; font-style: italic; }
-      .tuner-sharp-label { right: 4px; }
 
       .tuner-test-section {
         margin-top: 8px;
@@ -1889,14 +1859,6 @@
       /* 注釈バー: デスクトップでは非表示 */
       #annotationBar {
         display: none;
-      }
-
-      .tuner-note-row {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-wrap: wrap;
-        margin-bottom: 6px;
       }
 
       .page-layer {
@@ -2582,13 +2544,13 @@
         </section>
         <div id="tunerPanel" class="tuner-panel floating-panel feature-panel" hidden>
           <button class="panel-close-btn" type="button" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()" aria-label="閉じる">✕</button>
-          <div class="tuner-note-row">
-            <span class="tuner-target">弦</span>
-            <button id="tunerGButton" class="tool-button" type="button">G</button>
-            <button id="tunerDButton" class="tool-button" type="button">D</button>
-            <button id="tunerAButton" class="tool-button" type="button">A</button>
-            <button id="tunerEButton" class="tool-button" type="button">E</button>
-          </div>
+          <button id="micTunerToggleButton" class="tuner-mic-btn" type="button" aria-label="マイクチューナー開始/停止">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+            マイクON
+          </button>
           <div class="tuner-arc-container" id="tunerArcContainer" aria-hidden="true">
             <svg id="tunerArcSvg" class="tuner-arc-svg" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path data-seg="8" d="M284.442 119.699C284.779 119.531 285.17 119.494 285.535 119.602C285.952 119.724 286.296 120.022 286.477 120.418L301.815 154.005C301.996 154.401 301.996 154.855 301.815 155.251C301.635 155.647 301.291 155.945 300.874 156.067L257.746 168.731C257.03 168.942 256.269 168.594 255.959 167.915L245.935 145.964C245.625 145.285 245.861 144.482 246.488 144.079L284.302 119.779L284.442 119.699Z" fill="#d8d8d8"/>
@@ -2600,17 +2562,11 @@
               <path data-seg="2" d="M95.9417 64.3505C96.2787 64.1823 96.6693 64.1456 97.0345 64.2529C97.4517 64.3755 97.7952 64.6737 97.9759 65.0693L116.649 105.955C116.959 106.633 116.722 107.436 116.095 107.84L95.7942 120.885C95.1668 121.288 94.3384 121.169 93.8499 120.605L64.4153 86.6366C64.1304 86.3078 64.0028 85.871 64.0648 85.4404C64.1268 85.0099 64.3727 84.6276 64.7386 84.3925L95.8011 64.4306L95.9417 64.3505Z" fill="#d8d8d8"/>
               <path data-seg="1" d="M61.7708 87.4287C62.2058 87.4288 62.6198 87.6176 62.9046 87.9463L92.3392 121.916C92.8275 122.48 92.8275 123.317 92.3392 123.881L76.5384 142.116C76.05 142.68 75.2216 142.798 74.5941 142.396L36.7796 118.096C36.4137 117.861 36.1678 117.478 36.1058 117.048C36.0438 116.617 36.1714 116.18 36.4564 115.852L60.637 87.9463L60.7503 87.8301C61.0263 87.5738 61.3902 87.4287 61.7708 87.4287Z" fill="#d8d8d8"/>
               <path data-seg="0" d="M34.4639 119.602C34.8812 119.479 35.3314 119.544 35.6973 119.779L73.5107 144.079C74.1382 144.482 74.3742 145.285 74.0645 145.964L64.04 167.915C63.7302 168.593 62.9686 168.941 62.2529 168.731L19.125 156.067C18.7076 155.945 18.3643 155.647 18.1836 155.251C18.0029 154.855 18.0029 154.401 18.1836 154.005L33.5225 120.418L33.5977 120.274C33.7902 119.951 34.0987 119.709 34.4639 119.602Z" fill="#d8d8d8"/>
+              <text id="tunerNoteDisplay" x="160" y="196" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="44" font-weight="800" fill="#cccccc" letter-spacing="-1">--</text>
+              <text x="26" y="188" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#d0d0d0" font-style="italic">♭</text>
+              <text x="294" y="188" text-anchor="middle" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#d0d0d0">♯</text>
             </svg>
-            <div class="tuner-flat-label" aria-hidden="true">♭</div>
-            <div class="tuner-sharp-label" aria-hidden="true">♯</div>
-            <button id="micTunerToggleButton" class="tuner-arc-mic" type="button" aria-label="マイクチューナー開始/停止">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="white" aria-hidden="true">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-            </button>
           </div>
-          <div id="tunerNoteDisplay" class="tuner-note-display">--</div>
           <div id="tunerDirectionDisplay" class="tuner-direction">音を鳴らしてください</div>
           <div class="tuner-test-section">
             <div class="tuner-test-label">テスト用（臨時）</div>
@@ -2648,6 +2604,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-68" defer></script>
+    <script src="script.js?v=20260619-69" defer></script>
   </body>
 </html>

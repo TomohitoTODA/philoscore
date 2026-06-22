@@ -463,10 +463,11 @@ const TUNER_ARC_SEGS = 9;
 const TUNER_ARC_CENTER = 4; // 中央セグメント (0 cents)
 // 外→内へ向かう色 (0=左端/フラット, 4=中央, 8=右端/シャープ)
 const TUNER_SEG_COLORS = [
-  '#ee402a', '#ee6b29', '#ef9628', '#efd727',
-  '#A7F01C',
-  '#efd727', '#ef9628', '#ee6b29', '#ee402a',
+  '#ee402a', '#ee6b29', '#ef9628', '#efc228',
+  '#efed27',
+  '#efc228', '#ef9628', '#ee6b29', '#ee402a',
 ];
+const TUNER_CENTER_ACTIVE_COLOR = '#A7F01C';
 
 const tunerThresholdBase = {
   rms: 0.002,
@@ -3214,7 +3215,14 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
     const hi = Math.max(TUNER_ARC_CENTER, activeIdx);
 
     segs.forEach((seg, i) => {
-      seg.setAttribute('fill', (i >= lo && i <= hi) ? TUNER_SEG_COLORS[i] : '#d8d8d8');
+      const isLit = (i >= lo && i <= hi);
+      let fill;
+      if (i === TUNER_ARC_CENTER) {
+        fill = TUNER_CENTER_ACTIVE_COLOR;
+      } else {
+        fill = isLit ? TUNER_SEG_COLORS[i] : '#d8d8d8';
+      }
+      seg.setAttribute('fill', fill);
     });
 
     const absCents = Math.abs(c);
@@ -3224,17 +3232,18 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
 
     if (tunerNoteDisplay) {
       tunerNoteDisplay.textContent = noteInfo.label;
-      tunerNoteDisplay.style.color = noteColor;
+      tunerNoteDisplay.setAttribute('fill', noteColor);
     }
 
-    const absCentsRound = Math.round(absCents);
+    const hzDiff = detectedHz - noteInfo.targetHz;
+    const absHz = Math.abs(hzDiff).toFixed(1);
     let dirText, dirColor;
     if (absCents < 5) {
       dirText = 'ちょうど ✓';  dirColor = '#2a9d62';
-    } else if (c < 0) {
-      dirText = `${absCentsRound}セント低い`;  dirColor = noteColor;
+    } else if (hzDiff < 0) {
+      dirText = `${absHz} Hz 低い`;  dirColor = noteColor;
     } else {
-      dirText = `${absCentsRound}セント高い`;  dirColor = noteColor;
+      dirText = `${absHz} Hz 高い`;  dirColor = noteColor;
     }
     if (tunerDirectionDisplay) {
       tunerDirectionDisplay.textContent = dirText;
@@ -3244,7 +3253,7 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
     segs.forEach(seg => { seg.setAttribute('fill', '#d8d8d8'); });
     if (tunerNoteDisplay) {
       tunerNoteDisplay.textContent = '--';
-      tunerNoteDisplay.style.color = 'var(--sub, #999)';
+      tunerNoteDisplay.setAttribute('fill', '#cccccc');
     }
     if (tunerDirectionDisplay) {
       tunerDirectionDisplay.textContent = '音を鳴らしてください';
