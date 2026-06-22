@@ -463,9 +463,9 @@ const TUNER_ARC_SEGS = 9;
 const TUNER_ARC_CENTER = 4; // 中央セグメント (0 cents)
 // 外→内へ向かう色 (0=左端/フラット, 4=中央, 8=右端/シャープ)
 const TUNER_SEG_COLORS = [
-  '#8B1A1A', '#C0392B', '#D35400', '#E07820',
-  '#2a9d62',
-  '#E07820', '#D35400', '#C0392B', '#8B1A1A',
+  '#ee402a', '#ee6b29', '#ef9628', '#efd727',
+  '#A7F01C',
+  '#efd727', '#ef9628', '#ee6b29', '#ee402a',
 ];
 
 const tunerThresholdBase = {
@@ -3356,7 +3356,6 @@ function runMicTunerLoop() {
     updateTunerNeedle(noteInfo.cents, stableFreq, noteInfo);
   } else {
     tunerFreqHistory = [];
-    updateTunerNeedle(0, null);
   }
 
   micTunerAnimationId = requestAnimationFrame(runMicTunerLoop);
