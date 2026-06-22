@@ -97,6 +97,11 @@ const abPenBtn = document.getElementById('abPenBtn');
 const abMarkerBtn = document.getElementById('abMarkerBtn');
 const abEraserBtn = document.getElementById('abEraserBtn');
 const abTextBtn = document.getElementById('abTextBtn');
+const abFingerBtn = document.getElementById('abFingerBtn');
+const abAccidentalBtn = document.getElementById('abAccidentalBtn');
+const abBowingBtn = document.getElementById('abBowingBtn');
+const abRedCircleBtn = document.getElementById('abRedCircleBtn');
+const abClearBtn = document.getElementById('abClearBtn');
 const abColorSizePanel = document.getElementById('abColorSizePanel');
 const abColorCustomBtn = document.getElementById('abColorCustomBtn');
 const abColorInput = document.getElementById('abColorInput');
@@ -1768,6 +1773,10 @@ function applyActiveToolButtonState() {
   if (abMarkerBtn) abMarkerBtn.classList.toggle('active', activeTool === 'marker');
   if (abEraserBtn) abEraserBtn.classList.toggle('active', activeTool === 'eraser');
   if (abTextBtn) abTextBtn.classList.toggle('active', activeTool === 'textStamp');
+  if (abFingerBtn) abFingerBtn.classList.toggle('active', activeTool === 'finger');
+  if (abAccidentalBtn) abAccidentalBtn.classList.toggle('active', activeTool === 'accidental');
+  if (abBowingBtn) abBowingBtn.classList.toggle('active', activeTool === 'bowing');
+  if (abRedCircleBtn) abRedCircleBtn.classList.toggle('active', activeTool === 'redCircle');
   updateAbBar();
 }
 
@@ -5008,6 +5017,11 @@ if (abPenBtn) bindTap(abPenBtn, () => setActiveTool('redPen'));
 if (abMarkerBtn) bindTap(abMarkerBtn, () => setActiveTool('marker'));
 if (abEraserBtn) bindTap(abEraserBtn, () => setActiveTool('eraser'));
 if (abTextBtn) bindTap(abTextBtn, () => setActiveTool('textStamp'));
+if (abFingerBtn) bindTap(abFingerBtn, () => setActiveTool('finger'));
+if (abAccidentalBtn) bindTap(abAccidentalBtn, () => setActiveTool('accidental'));
+if (abBowingBtn) bindTap(abBowingBtn, () => setActiveTool('bowing'));
+if (abRedCircleBtn) bindTap(abRedCircleBtn, () => setActiveTool('redCircle'));
+if (abClearBtn) bindTap(abClearBtn, clearCurrentAnnotation);
 
 // カラードット
 if (abColorSizePanel) {

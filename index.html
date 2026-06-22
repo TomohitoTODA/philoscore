@@ -2459,31 +2459,7 @@
             <button id="exportAnnotatedPdfButton" class="ghost-button" type="button">PDFを書き出す</button>
           </div>
 
-          <div class="reader-tools">
-            <div class="layout-controls">
-              <span>表示</span>
-              <div class="layout-buttons">
-                <button id="layoutSingleButton" class="tool-button active" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('single')">1P</button>
-                <button id="layoutSpreadABtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadA')">見開きA</button>
-                <button id="layoutSpreadBBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadB')">見開きB</button>
-                <button id="layoutScrollVBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollV')">縦つなぎ</button>
-                <button id="layoutScrollHBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollH')">横つなぎ</button>
-                <button id="fullscreenToggleButton" class="tool-button" type="button">全画面</button>
-              </div>
-            </div>
-            <div class="zoom-controls">
-              <button id="zoomOutButton" class="ghost-button" type="button">−</button>
-              <span id="zoomLabel" class="zoom-label">100%</span>
-              <button id="zoomInButton" class="ghost-button" type="button">＋</button>
-              <button id="zoomResetButton" class="ghost-button" type="button">100%</button>
-            </div>
-            <div class="pager">
-              <button id="readerPrevButton" class="ghost-button" type="button">前へ</button>
-              <span id="readerPageLabel" class="page-label">- / -</span>
-              <button id="readerNextButton" class="ghost-button" type="button">次へ</button>
-            </div>
-          </div>
-          <section id="metronomePanel" class="metronome-panel floating-panel feature-panel" aria-label="メトロノーム">
+          <section id="metronomePanel" class="metronome-panel feature-panel" aria-label="メトロノーム">
             <div class="metro-swing">
               <div class="metro-rail">
                 <div id="metronomeArm" class="metro-arm">
@@ -2531,6 +2507,31 @@
             </div>
             <button id="metronomeToggleButton" class="metro-start" type="button">START</button>
           </section>
+
+          <div class="reader-tools">
+            <div class="layout-controls">
+              <span>表示</span>
+              <div class="layout-buttons">
+                <button id="layoutSingleButton" class="tool-button active" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('single')">1P</button>
+                <button id="layoutSpreadABtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadA')">見開きA</button>
+                <button id="layoutSpreadBBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadB')">見開きB</button>
+                <button id="layoutScrollVBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollV')">縦つなぎ</button>
+                <button id="layoutScrollHBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollH')">横つなぎ</button>
+                <button id="fullscreenToggleButton" class="tool-button" type="button">全画面</button>
+              </div>
+            </div>
+            <div class="zoom-controls">
+              <button id="zoomOutButton" class="ghost-button" type="button">−</button>
+              <span id="zoomLabel" class="zoom-label">100%</span>
+              <button id="zoomInButton" class="ghost-button" type="button">＋</button>
+              <button id="zoomResetButton" class="ghost-button" type="button">100%</button>
+            </div>
+            <div class="pager">
+              <button id="readerPrevButton" class="ghost-button" type="button">前へ</button>
+              <span id="readerPageLabel" class="page-label">- / -</span>
+              <button id="readerNextButton" class="ghost-button" type="button">次へ</button>
+            </div>
+          </div>
           </div><!-- /.mobile-tools-panel -->
 
         </aside>
@@ -2606,6 +2607,15 @@
             <button class="ab-size" data-size="L" type="button" aria-label="太"></button>
           </div>
 
+          <div class="ab-cs-sep"></div>
+          <!-- 仮置きボタン (アイコンは後で追加) -->
+          <button id="abFingerBtn" class="ab-btn" type="button" aria-label="指番号" title="指番号">指</button>
+          <button id="abAccidentalBtn" class="ab-btn" type="button" aria-label="臨時記号" title="臨時記号">♯♭</button>
+          <button id="abBowingBtn" class="ab-btn" type="button" aria-label="ボーイング" title="ボーイング">弓</button>
+          <button id="abRedCircleBtn" class="ab-btn" type="button" aria-label="赤丸" title="赤マル">○</button>
+          <div class="ab-cs-sep"></div>
+          <button id="abClearBtn" class="ab-btn" type="button" aria-label="注釈を消去" title="注釈を消去" style="font-size:11px;color:#c00;">消去</button>
+
           <span id="metronomeBeatIndicator" class="beat-indicator ab-beat">●○○○</span>
         </div>
 
@@ -2659,6 +2669,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-80" defer></script>
+    <script src="script.js?v=20260619-81" defer></script>
   </body>
 </html>
