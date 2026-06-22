@@ -130,10 +130,6 @@ const metronomeMarking = document.getElementById('metronomeMarking');
 const metronomeToggleButton = document.getElementById('metronomeToggleButton');
 const timeSignatureButtons = document.querySelectorAll('[data-time-signature]');
 const rhythmButtons = document.querySelectorAll('[data-rhythm]');
-const tunerGButton = document.getElementById('tunerGButton');
-const tunerDButton = document.getElementById('tunerDButton');
-const tunerAButton = document.getElementById('tunerAButton');
-const tunerEButton = document.getElementById('tunerEButton');
 const tunerTargetLabel = document.getElementById('tunerTargetLabel');
 const micTunerToggleButton = document.getElementById('micTunerToggleButton');
 const tunerNeedle = document.getElementById('tunerNeedle');
@@ -436,13 +432,6 @@ const violinTuningFrequencies = {
 };
 
 const chromaticNoteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-const tunerNoteButtons = {
-  G: tunerGButton,
-  D: tunerDButton,
-  A: tunerAButton,
-  E: tunerEButton,
-};
 
 const rhythmProfiles = {
   '1x': { subdivisions: 1, pattern: [1.0], swing: false },
@@ -3160,18 +3149,8 @@ function stopTunerTone() {
 }
 
 function setTunerTargetNote(noteName) {
-  if (!violinTuningFrequencies[noteName]) {
-    return;
-  }
-
+  if (!violinTuningFrequencies[noteName]) return;
   tunerTargetNote = noteName;
-
-  Object.entries(tunerNoteButtons).forEach(([name, button]) => {
-    button.classList.toggle('active', name === noteName);
-  });
-
-  const freq = violinTuningFrequencies[noteName];
-  if (tunerTargetLabel) tunerTargetLabel.textContent = `基準: ${noteName}`;
 }
 
 function getTunerThresholdFactor() {
@@ -4805,18 +4784,6 @@ bindTap(metronomePlusButton, () => {
   setMetronomeBpm(metronomeBpm + 1);
 });
 bindTap(metronomeToggleButton, toggleMetronome);
-bindTap(tunerGButton, () => {
-  triggerTunerTone('G');
-});
-bindTap(tunerDButton, () => {
-  triggerTunerTone('D');
-});
-bindTap(tunerAButton, () => {
-  triggerTunerTone('A');
-});
-bindTap(tunerEButton, () => {
-  triggerTunerTone('E');
-});
 bindTap(micTunerToggleButton, toggleMicTuner);
 
 if (tunerThresholdSlider) {
