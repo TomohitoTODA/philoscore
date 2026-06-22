@@ -1746,33 +1746,6 @@
 
 
 
-      .tuner-test-section {
-        margin-top: 8px;
-        padding: 6px 8px;
-        background: rgba(0,0,0,0.04);
-        border-radius: 8px;
-      }
-      .tuner-test-label {
-        font-size: 10px;
-        color: #aaa;
-        margin-bottom: 4px;
-      }
-      .tuner-test-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-      }
-      .tuner-test-row button {
-        font-size: 11px;
-        padding: 3px 6px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        background: #f5f5f5;
-        cursor: pointer;
-        line-height: 1.2;
-      }
-      .tuner-test-row button:active { background: #e0e0e0; }
-
       .tuner-threshold {
         margin-top: 8px;
         display: flex;
@@ -2568,22 +2541,6 @@
             </svg>
           </div>
           <div id="tunerDirectionDisplay" class="tuner-direction">音を鳴らしてください</div>
-          <div class="tuner-test-section">
-            <div class="tuner-test-label">テスト用（臨時）</div>
-            <div class="tuner-test-row">
-              <button type="button" onclick="simulateTunerFrequency(420)">420</button>
-              <button type="button" onclick="simulateTunerFrequency(424)">424</button>
-              <button type="button" onclick="simulateTunerFrequency(428)">428</button>
-              <button type="button" onclick="simulateTunerFrequency(432)">432</button>
-              <button type="button" onclick="simulateTunerFrequency(436)">436</button>
-              <button type="button" onclick="simulateTunerFrequency(440)">440</button>
-              <button type="button" onclick="simulateTunerFrequency(444)">444</button>
-              <button type="button" onclick="simulateTunerFrequency(448)">448</button>
-              <button type="button" onclick="simulateTunerFrequency(452)">452</button>
-              <button type="button" onclick="simulateTunerFrequency(456)">456</button>
-              <button type="button" onclick="simulateTunerFrequency(460)">460</button>
-            </div>
-          </div>
           <span id="tunerTargetLabel" hidden>基準: A</span>
           <div id="tunerReadout" hidden>待機中</div>
           <div class="tuner-threshold">
@@ -2604,6 +2561,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-74" defer></script>
+    <script src="script.js?v=20260619-75" defer></script>
   </body>
 </html>

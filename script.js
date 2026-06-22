@@ -3193,18 +3193,19 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
     const lo = Math.min(TUNER_ARC_CENTER, activeIdx);
     const hi = Math.max(TUNER_ARC_CENTER, activeIdx);
 
+    const absCents = Math.abs(c);
+
     segs.forEach((seg, i) => {
       const isLit = (i >= lo && i <= hi);
       let fill;
       if (i === TUNER_ARC_CENTER) {
-        fill = TUNER_CENTER_ACTIVE_COLOR;
+        fill = absCents < 5 ? TUNER_CENTER_ACTIVE_COLOR : TUNER_SEG_COLORS[i];
       } else {
         fill = isLit ? TUNER_SEG_COLORS[i] : '#d8d8d8';
       }
       seg.setAttribute('fill', fill);
     });
 
-    const absCents = Math.abs(c);
     let noteColor = '#c84337';
     if (absCents < 5) noteColor = '#2a9d62';
     else if (absCents < 15) noteColor = '#e7b14d';
