@@ -1597,7 +1597,7 @@
       }
 
       .metro-swing {
-        height: 128px;
+        height: 90px;
         display: grid;
         place-items: center;
         margin-bottom: 4px;
@@ -1632,6 +1632,8 @@
         background: #f6f6f6;
         box-shadow: -3px 4px 0 rgba(0, 0, 0, 0.2);
         transform: translateX(-14px);
+        touch-action: none;
+        cursor: ns-resize;
       }
 
       .metro-marking {
@@ -1781,6 +1783,7 @@
       #metronomePanel {
         top: 12px;
         max-height: calc(50% - 20px);
+        overflow: hidden;
       }
 
       #tunerPanel {
@@ -2558,6 +2561,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-78" defer></script>
+    <script src="script.js?v=20260619-79" defer></script>
   </body>
 </html>

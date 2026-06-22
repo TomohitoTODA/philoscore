@@ -271,6 +271,7 @@ let metronomeTimerId = null;
 let metronomeSwingTimerId = null;
 let isMetronomeRunning = false;
 let metronomeSwingDirection = 1;
+let isMetronomeDragging = false;
 let metronomeBeatIndex = 0;
 let metronomeSubIndex = 0;
 let tunerOscillator = null;
@@ -2911,6 +2912,7 @@ function getMetronomeSwingIntervalMs() {
 }
 
 function animateMetronomeSwing() {
+  if (isMetronomeDragging) return;
   const beatMs = getMetronomeSwingIntervalMs();
   metronomeArm.style.transition = `transform ${Math.max(120, Math.round(beatMs * 0.72))}ms cubic-bezier(0.22, 0.8, 0.22, 1)`;
   metronomeWeight.style.transition = `box-shadow ${Math.max(120, Math.round(beatMs * 0.72))}ms cubic-bezier(0.22, 0.8, 0.22, 1)`;
@@ -2940,8 +2942,20 @@ function scheduleMetronomeSwing() {
 }
 
 function resetMetronomeSwing() {
+  if (isMetronomeDragging) return;
   metronomeArm.style.transform = 'translateX(-2px) rotate(0deg)';
   metronomeWeight.style.boxShadow = '-4px 6px 0 rgba(0, 0, 0, 0.2)';
+}
+
+function setMetronomeBpmFromPointer(clientY) {
+  if (!metronomeRail) return;
+  const rect = metronomeRail.getBoundingClientRect();
+  const y = Math.max(rect.top, Math.min(rect.bottom, clientY));
+  const { minTop, maxTop } = getMetronomeWeightRange();
+  const top = Math.max(minTop, Math.min(maxTop, y - rect.top - (metronomeWeight.clientHeight / 2)));
+  const ratio = (top - minTop) / Math.max(1, (maxTop - minTop));
+  const bpm = 40 + ratio * 200;
+  setMetronomeBpm(bpm);
 }
 
 function getMetronomeWeightRange() {
@@ -5046,6 +5060,28 @@ function bindSingleToggle(button, handler) {
     event.preventDefault();
     handler();
   };
+}
+
+if (metronomeRail && metronomeWeight) {
+  const startDrag = (event) => {
+    isMetronomeDragging = true;
+    setMetronomeBpmFromPointer(event.clientY);
+  };
+  const moveDrag = (event) => {
+    if (!isMetronomeDragging) return;
+    event.preventDefault();
+    setMetronomeBpmFromPointer(event.clientY);
+  };
+  const endDrag = () => {
+    if (!isMetronomeDragging) return;
+    isMetronomeDragging = false;
+    resetMetronomeSwing();
+  };
+  metronomeWeight.addEventListener('pointerdown', (event) => { event.preventDefault(); startDrag(event); });
+  metronomeRail.addEventListener('pointerdown', (event) => { event.preventDefault(); startDrag(event); });
+  window.addEventListener('pointermove', moveDrag, { passive: false });
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
 }
 
 // metronomeWindowToggle / tunerWindowToggle は bindTap で処理済み。
