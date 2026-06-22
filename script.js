@@ -5245,16 +5245,29 @@ function initGoogleAuth() {
 // Google GSI の読み込みタイミングに依存しないよう、クリック時に遅延初期化する。
 if (loginButton) {
   loginButton.addEventListener('click', () => {
+    loginButton.textContent = '接続中…';
+    loginButton.disabled = true;
+
+    const reset = () => {
+      loginButton.textContent = 'Googleでログイン';
+      loginButton.disabled = false;
+    };
+
     if (!window.google?.accounts?.oauth2) {
-      alert('Google認証ライブラリが読み込まれていません。ページを再読み込みしてください。');
+      reset();
+      alert('Google認証ライブラリ未読み込み。ページを再読み込みしてください。');
       return;
     }
     initGoogleTokenClient();
     try {
       googleTokenClient.requestAccessToken();
     } catch (e) {
+      reset();
       alert('Google認証エラー: ' + e.message);
     }
+    // 認証成功は handleTokenResponse → renderAuthUI で処理されるので reset 不要
+    // タイムアウト: 30秒経っても応答なければ戻す
+    setTimeout(reset, 30000);
   });
 }
 
