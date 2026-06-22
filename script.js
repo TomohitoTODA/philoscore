@@ -2564,7 +2564,6 @@ function setReaderFocusMode(nextValue) {
   isReaderFocusMode = Boolean(nextValue);
 
   if (isReaderFocusMode) {
-    setFloatingWindowVisible(metronomePanel, metronomeWindowToggle, false, 'メトロノーム');
     setFloatingWindowVisible(tunerPanel, tunerWindowToggle, false, 'チューナー');
     reader.classList.add('focus-mode');
   } else {
@@ -4223,7 +4222,6 @@ function closeReader() {
   stopMetronome();
   stopTunerTone();
   stopMicTuner();
-  setFloatingWindowVisible(metronomePanel, metronomeWindowToggle, false, 'メトロノーム');
   setFloatingWindowVisible(tunerPanel, tunerWindowToggle, false, 'チューナー');
   setReaderFocusMode(false);
   reader.style.display = 'none';
@@ -4965,7 +4963,6 @@ updateMetronomeBeatIndicator(0);
 updateZoomLabel();
 updateFullscreenButtonState();
 updateTunerThresholdUI();
-setFloatingWindowVisible(metronomePanel, metronomeWindowToggle, false, 'メトロノーム');
 setFloatingWindowVisible(tunerPanel, tunerWindowToggle, false, 'チューナー');
 
 // Fallback hooks for inline handlers in IAB environments.
