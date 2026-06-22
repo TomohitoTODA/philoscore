@@ -1695,12 +1695,25 @@
         background: #fafafa;
       }
 
-      .tuner-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 4px;
+      .tuner-note-display {
+        font-size: 56px;
+        font-weight: 800;
+        text-align: center;
+        line-height: 1;
+        margin: 6px 0 2px;
+        letter-spacing: -2px;
+        color: var(--sub);
+        transition: color 200ms ease;
+      }
+
+      .tuner-direction {
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        min-height: 18px;
+        margin-top: 6px;
+        color: var(--sub);
+        transition: color 200ms ease;
       }
 
       .tuner-target {
@@ -1713,20 +1726,21 @@
         justify-content: space-between;
         font-size: 11px;
         color: var(--sub);
+        margin-top: 2px;
       }
 
       .tuner-meter {
         margin-top: 4px;
         position: relative;
-        height: 30px;
+        height: 40px;
       }
 
       .tuner-baseline {
         position: absolute;
         left: 8px;
         right: 8px;
-        top: 14px;
-        height: 4px;
+        top: 18px;
+        height: 5px;
         border-radius: 999px;
         background: linear-gradient(
           90deg,
@@ -1741,9 +1755,9 @@
       .tuner-center {
         position: absolute;
         left: 50%;
-        top: 10px;
+        top: 12px;
         width: 2px;
-        height: 12px;
+        height: 18px;
         background: rgba(0, 0, 0, 0.22);
         transform: translateX(-1px);
       }
@@ -1751,14 +1765,14 @@
       .tuner-needle {
         position: absolute;
         left: 50%;
-        top: 8px;
-        width: 14px;
-        height: 14px;
+        top: 10px;
+        width: 20px;
+        height: 20px;
         border-radius: 999px;
         background: #b42318;
         transform: translateX(-50%);
-        transition: transform 80ms linear, background 80ms linear;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+        transition: transform 100ms ease-out, background 150ms ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
       }
 
       .tuner-readout {
@@ -2547,10 +2561,8 @@
             <button id="tunerAButton" class="tool-button" type="button">A</button>
             <button id="tunerEButton" class="tool-button" type="button">E</button>
           </div>
-          <div class="tuner-header">
-            <span id="tunerTargetLabel" class="tuner-target">基準: A (440.00Hz)</span>
-            <button id="micTunerToggleButton" class="ghost-button" type="button">マイクチューナー開始</button>
-          </div>
+          <button id="micTunerToggleButton" class="ghost-button" style="width:100%;margin-bottom:2px" type="button">マイクチューナー開始</button>
+          <div id="tunerNoteDisplay" class="tuner-note-display">--</div>
           <div class="tuner-scale">
             <span>低い</span>
             <span>OK</span>
@@ -2561,7 +2573,9 @@
             <div class="tuner-center"></div>
             <div id="tunerNeedle" class="tuner-needle"></div>
           </div>
-          <div id="tunerReadout" class="tuner-readout">待機中</div>
+          <div id="tunerDirectionDisplay" class="tuner-direction">音を鳴らしてください</div>
+          <span id="tunerTargetLabel" hidden>基準: A</span>
+          <div id="tunerReadout" class="tuner-readout" hidden>待機中</div>
           <div class="tuner-threshold">
             <div class="tuner-threshold-header">
               <span>検出しきい値</span>
@@ -2580,6 +2594,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-63" defer></script>
+    <script src="script.js?v=20260619-64" defer></script>
   </body>
 </html>

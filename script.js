@@ -138,6 +138,8 @@ const tunerTargetLabel = document.getElementById('tunerTargetLabel');
 const micTunerToggleButton = document.getElementById('micTunerToggleButton');
 const tunerNeedle = document.getElementById('tunerNeedle');
 const tunerReadout = document.getElementById('tunerReadout');
+const tunerNoteDisplay = document.getElementById('tunerNoteDisplay');
+const tunerDirectionDisplay = document.getElementById('tunerDirectionDisplay');
 const tunerThresholdSlider = document.getElementById('tunerThresholdSlider');
 const tunerThresholdValue = document.getElementById('tunerThresholdValue');
 
@@ -3158,7 +3160,7 @@ function setTunerTargetNote(noteName) {
   });
 
   const freq = violinTuningFrequencies[noteName];
-  tunerTargetLabel.textContent = `基準: ${noteName} (${freq.toFixed(2)}Hz)`;
+  if (tunerTargetLabel) tunerTargetLabel.textContent = `基準: ${noteName}`;
 }
 
 function getTunerThresholdFactor() {
@@ -3199,23 +3201,42 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
 
   const absCents = Math.abs(cents);
   let indicatorColor = '#c84337';
-  if (absCents < 5) {
-    indicatorColor = '#2a9d62';
-  } else if (absCents < 15) {
-    indicatorColor = '#e7b14d';
-  }
+  if (absCents < 5) indicatorColor = '#2a9d62';
+  else if (absCents < 15) indicatorColor = '#e7b14d';
   tunerNeedle.style.background = indicatorColor;
 
-  const direction = cents < -1 ? '低い' : cents > 1 ? '高い' : 'OK';
-  if (detectedHz) {
-    if (noteInfo) {
-      tunerTargetLabel.textContent = `検出: ${noteInfo.label} (${noteInfo.targetHz.toFixed(2)}Hz)`;
-      tunerReadout.textContent = `${detectedHz.toFixed(2)}Hz / ${noteInfo.label} (${cents >= 0 ? '+' : ''}${cents.toFixed(1)} cent, ${direction})`;
+  if (detectedHz && noteInfo) {
+    // 大きな音名表示
+    if (tunerNoteDisplay) {
+      tunerNoteDisplay.textContent = noteInfo.label;
+      tunerNoteDisplay.style.color = indicatorColor;
+    }
+    // 方向テキスト（セント表示）
+    const absCentsRound = Math.round(absCents);
+    let dirText, dirColor;
+    if (absCents < 5) {
+      dirText = 'ちょうど ✓';
+      dirColor = '#2a9d62';
+    } else if (cents < 0) {
+      dirText = `${absCentsRound}セント低い`;
+      dirColor = indicatorColor;
     } else {
-      tunerReadout.textContent = `${detectedHz.toFixed(2)}Hz (${cents >= 0 ? '+' : ''}${cents.toFixed(1)} cent, ${direction})`;
+      dirText = `${absCentsRound}セント高い`;
+      dirColor = indicatorColor;
+    }
+    if (tunerDirectionDisplay) {
+      tunerDirectionDisplay.textContent = dirText;
+      tunerDirectionDisplay.style.color = dirColor;
     }
   } else {
-    tunerReadout.textContent = `入力待ち (${tunerTargetNote} ${violinTuningFrequencies[tunerTargetNote].toFixed(2)}Hz)`;
+    if (tunerNoteDisplay) {
+      tunerNoteDisplay.textContent = '--';
+      tunerNoteDisplay.style.color = 'var(--sub, #999)';
+    }
+    if (tunerDirectionDisplay) {
+      tunerDirectionDisplay.textContent = '音を鳴らしてください';
+      tunerDirectionDisplay.style.color = 'var(--sub, #999)';
+    }
   }
 }
 
@@ -3296,7 +3317,6 @@ function stopMicTuner() {
 
   tunerFreqHistory = [];
   updateTunerNeedle(0, null);
-  tunerReadout.textContent = `待機中 (${tunerTargetNote} ${violinTuningFrequencies[tunerTargetNote].toFixed(2)}Hz)`;
 }
 
 function runMicTunerLoop() {
@@ -3324,10 +3344,6 @@ function runMicTunerLoop() {
   } else {
     tunerFreqHistory = [];
     updateTunerNeedle(0, null);
-    const levelText = rms > tunerThresholdBase.level * getTunerThresholdFactor()
-      ? `入力あり: レベル ${(rms * 100).toFixed(1)}%`
-      : '入力待ち';
-    tunerReadout.textContent = `${levelText} (${tunerTargetNote} ${violinTuningFrequencies[tunerTargetNote].toFixed(2)}Hz)`;
   }
 
   micTunerAnimationId = requestAnimationFrame(runMicTunerLoop);
@@ -3336,15 +3352,19 @@ function runMicTunerLoop() {
 async function startMicTuner() {
   stopMicTuner();
 
+  const setDir = (text) => {
+    if (tunerDirectionDisplay) tunerDirectionDisplay.textContent = text;
+  };
+
   if (!window.isSecureContext) {
     alert('このページは安全なコンテキストではないため、マイクが使えません。https または localhost で開いてください。');
-    tunerReadout.textContent = 'マイク不可: 安全でないページ';
+    setDir('マイク不可: https が必要です');
     return;
   }
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     alert('このブラウザではマイク入力が利用できません。');
-    tunerReadout.textContent = 'マイク不可: getUserMedia未対応';
+    setDir('マイク不可: ブラウザ非対応');
     return;
   }
 
@@ -3366,7 +3386,7 @@ async function startMicTuner() {
 
   isMicTunerRunning = true;
   micTunerToggleButton.textContent = 'マイクチューナー停止';
-  tunerReadout.textContent = 'マイク入力を解析中...';
+  setDir('音を鳴らしてください');
   runMicTunerLoop();
 }
 
@@ -3382,7 +3402,7 @@ async function toggleMicTuner() {
     console.error('Failed to start mic tuner.', error);
     const message = error && error.message ? error.message : 'unknown error';
     alert(`マイクチューナーを開始できませんでした。マイク権限またはブラウザ設定を確認してください。\n(${message})`);
-    tunerReadout.textContent = `マイク開始失敗: ${message}`;
+    if (tunerDirectionDisplay) tunerDirectionDisplay.textContent = 'マイク開始に失敗しました';
     stopMicTuner();
   }
 }
