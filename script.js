@@ -458,6 +458,32 @@ const previewState = {
 
 const previewScale = 0.8;
 
+// チューナー弧メーター設定
+const TUNER_ARC_SEGS = 13;
+const TUNER_ARC_CENTER = 6; // 中央セグメント (0 cents)
+const TUNER_ARC_MID_R = 111; // 弧の中間半径 (px)
+const TUNER_ARC_MIN_DEG = -72;
+const TUNER_ARC_MAX_DEG = 72;
+// 外→内へ向かう色 (0=左端/フラット, 6=中央, 12=右端/シャープ)
+const TUNER_SEG_COLORS = [
+  '#c84337','#c84337','#d4722e','#e7b14d','#e7b14d','#9ec940',
+  '#2a9d62',
+  '#9ec940','#e7b14d','#e7b14d','#d4722e','#c84337','#c84337',
+];
+
+function setupTunerArcSegments() {
+  const container = document.getElementById('tunerArcContainer');
+  if (!container) return;
+  const segs = container.querySelectorAll('.tuner-arc-segment');
+  segs.forEach((seg, i) => {
+    const deg = TUNER_ARC_MIN_DEG + (i / (TUNER_ARC_SEGS - 1)) * (TUNER_ARC_MAX_DEG - TUNER_ARC_MIN_DEG);
+    const rad = deg * Math.PI / 180;
+    const x = Math.sin(rad) * TUNER_ARC_MID_R;
+    const y = -Math.cos(rad) * TUNER_ARC_MID_R;
+    seg.style.transform = `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px)) rotate(${deg.toFixed(1)}deg)`;
+  });
+}
+
 const tunerThresholdBase = {
   rms: 0.002,
   level: 0.001,
@@ -3191,44 +3217,45 @@ function getNearestNoteInfo(frequency) {
 }
 
 function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
-  const clampedCents = Math.max(-50, Math.min(50, cents));
-  const meterWidth = tunerNeedle.parentElement
-    ? Math.max(0, tunerNeedle.parentElement.clientWidth - 16)
-    : 0;
-  const maxOffset = meterWidth / 2;
-  const offset = (clampedCents / 50) * maxOffset;
-  tunerNeedle.style.transform = `translateX(calc(-50% + ${offset}px))`;
-
-  const absCents = Math.abs(cents);
-  let indicatorColor = '#c84337';
-  if (absCents < 5) indicatorColor = '#2a9d62';
-  else if (absCents < 15) indicatorColor = '#e7b14d';
-  tunerNeedle.style.background = indicatorColor;
+  const container = document.getElementById('tunerArcContainer');
+  const segs = container ? container.querySelectorAll('.tuner-arc-segment') : [];
 
   if (detectedHz && noteInfo) {
-    // 大きな音名表示
+    const c = noteInfo.cents;
+    const clamped = Math.max(-50, Math.min(50, c));
+    const activeIdx = TUNER_ARC_CENTER + Math.round((clamped / 50) * TUNER_ARC_CENTER);
+    const lo = Math.min(TUNER_ARC_CENTER, activeIdx);
+    const hi = Math.max(TUNER_ARC_CENTER, activeIdx);
+
+    segs.forEach((seg, i) => {
+      seg.style.background = (i >= lo && i <= hi) ? TUNER_SEG_COLORS[i] : '#d8d8d8';
+    });
+
+    const absCents = Math.abs(c);
+    let noteColor = '#c84337';
+    if (absCents < 5) noteColor = '#2a9d62';
+    else if (absCents < 15) noteColor = '#e7b14d';
+
     if (tunerNoteDisplay) {
       tunerNoteDisplay.textContent = noteInfo.label;
-      tunerNoteDisplay.style.color = indicatorColor;
+      tunerNoteDisplay.style.color = noteColor;
     }
-    // 方向テキスト（セント表示）
+
     const absCentsRound = Math.round(absCents);
     let dirText, dirColor;
     if (absCents < 5) {
-      dirText = 'ちょうど ✓';
-      dirColor = '#2a9d62';
-    } else if (cents < 0) {
-      dirText = `${absCentsRound}セント低い`;
-      dirColor = indicatorColor;
+      dirText = 'ちょうど ✓';  dirColor = '#2a9d62';
+    } else if (c < 0) {
+      dirText = `${absCentsRound}セント低い`;  dirColor = noteColor;
     } else {
-      dirText = `${absCentsRound}セント高い`;
-      dirColor = indicatorColor;
+      dirText = `${absCentsRound}セント高い`;  dirColor = noteColor;
     }
     if (tunerDirectionDisplay) {
       tunerDirectionDisplay.textContent = dirText;
       tunerDirectionDisplay.style.color = dirColor;
     }
   } else {
+    segs.forEach(seg => { seg.style.background = '#d8d8d8'; });
     if (tunerNoteDisplay) {
       tunerNoteDisplay.textContent = '--';
       tunerNoteDisplay.style.color = 'var(--sub, #999)';
@@ -3293,7 +3320,7 @@ function autoCorrelatePitch(buffer, sampleRate) {
 
 function stopMicTuner() {
   isMicTunerRunning = false;
-  micTunerToggleButton.textContent = 'マイクチューナー開始';
+  micTunerToggleButton.classList.remove('is-active');
 
   if (micTunerAnimationId !== null) {
     cancelAnimationFrame(micTunerAnimationId);
@@ -3385,7 +3412,7 @@ async function startMicTuner() {
   micTunerSource.connect(micTunerAnalyser);
 
   isMicTunerRunning = true;
-  micTunerToggleButton.textContent = 'マイクチューナー停止';
+  micTunerToggleButton.classList.add('is-active');
   setDir('音を鳴らしてください');
   runMicTunerLoop();
 }
@@ -4969,6 +4996,7 @@ applyActiveToolButtonState();
 applyLayoutButtonState();
 updateStampSizeUI();
 setTunerTargetNote('A');
+setupTunerArcSegments();
 updateTunerNeedle(0, null);
 updateMetronomeUI();
 applyMetronomeOptionButtonState();

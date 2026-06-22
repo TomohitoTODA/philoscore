@@ -1721,65 +1721,62 @@
         color: var(--sub);
       }
 
-      .tuner-scale {
-        display: flex;
-        justify-content: space-between;
-        font-size: 11px;
-        color: var(--sub);
-        margin-top: 2px;
-      }
-
-      .tuner-meter {
-        margin-top: 4px;
+      .tuner-arc-container {
         position: relative;
-        height: 40px;
+        width: 100%;
+        height: 165px;
+        margin: 6px 0 0;
       }
 
-      .tuner-baseline {
-        position: absolute;
-        left: 8px;
-        right: 8px;
-        top: 18px;
-        height: 5px;
-        border-radius: 999px;
-        background: linear-gradient(
-          90deg,
-          #c84337 0%,
-          #e7b14d 24%,
-          #2a9d62 50%,
-          #e7b14d 76%,
-          #c84337 100%
-        );
-      }
-
-      .tuner-center {
+      .tuner-arc-segment {
         position: absolute;
         left: 50%;
-        top: 12px;
-        width: 2px;
-        height: 18px;
-        background: rgba(0, 0, 0, 0.22);
-        transform: translateX(-1px);
+        top: 152px;
+        width: 22px;
+        height: 58px;
+        border-radius: 7px 7px 3px 3px;
+        background: #d8d8d8;
+        transition: background 120ms ease;
       }
 
-      .tuner-needle {
+      .tuner-arc-mic {
         position: absolute;
         left: 50%;
-        top: 10px;
-        width: 20px;
-        height: 20px;
-        border-radius: 999px;
-        background: #b42318;
-        transform: translateX(-50%);
-        transition: transform 100ms ease-out, background 150ms ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
+        top: 152px;
+        width: 58px;
+        height: 58px;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: #cccccc;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 0 9px rgba(0,0,0,0.07);
+        transition: background 200ms ease, box-shadow 200ms ease;
+        z-index: 10;
       }
 
-      .tuner-readout {
-        margin-top: 4px;
-        font-size: 11px;
-        color: var(--sub);
+      .tuner-arc-mic.is-active {
+        background: #3a8c5c;
+        box-shadow: 0 0 0 9px rgba(58,140,92,0.18);
       }
+
+      .tuner-flat-label,
+      .tuner-sharp-label {
+        position: absolute;
+        top: 152px;
+        transform: translateY(-50%);
+        font-size: 20px;
+        color: #c8c8c8;
+        pointer-events: none;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .tuner-flat-label { left: 4px; font-style: italic; }
+      .tuner-sharp-label { right: 4px; }
 
       .tuner-threshold {
         margin-top: 8px;
@@ -2561,21 +2558,33 @@
             <button id="tunerAButton" class="tool-button" type="button">A</button>
             <button id="tunerEButton" class="tool-button" type="button">E</button>
           </div>
-          <button id="micTunerToggleButton" class="ghost-button" style="width:100%;margin-bottom:2px" type="button">マイクチューナー開始</button>
+          <div class="tuner-arc-container" id="tunerArcContainer" aria-hidden="true">
+            <div class="tuner-arc-segment" data-seg="0"></div>
+            <div class="tuner-arc-segment" data-seg="1"></div>
+            <div class="tuner-arc-segment" data-seg="2"></div>
+            <div class="tuner-arc-segment" data-seg="3"></div>
+            <div class="tuner-arc-segment" data-seg="4"></div>
+            <div class="tuner-arc-segment" data-seg="5"></div>
+            <div class="tuner-arc-segment" data-seg="6"></div>
+            <div class="tuner-arc-segment" data-seg="7"></div>
+            <div class="tuner-arc-segment" data-seg="8"></div>
+            <div class="tuner-arc-segment" data-seg="9"></div>
+            <div class="tuner-arc-segment" data-seg="10"></div>
+            <div class="tuner-arc-segment" data-seg="11"></div>
+            <div class="tuner-arc-segment" data-seg="12"></div>
+            <div class="tuner-flat-label" aria-hidden="true">♭</div>
+            <div class="tuner-sharp-label" aria-hidden="true">♯</div>
+            <button id="micTunerToggleButton" class="tuner-arc-mic" type="button" aria-label="マイクチューナー開始/停止">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="white" aria-hidden="true">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+              </svg>
+            </button>
+          </div>
           <div id="tunerNoteDisplay" class="tuner-note-display">--</div>
-          <div class="tuner-scale">
-            <span>低い</span>
-            <span>OK</span>
-            <span>高い</span>
-          </div>
-          <div class="tuner-meter" aria-hidden="true">
-            <div class="tuner-baseline"></div>
-            <div class="tuner-center"></div>
-            <div id="tunerNeedle" class="tuner-needle"></div>
-          </div>
           <div id="tunerDirectionDisplay" class="tuner-direction">音を鳴らしてください</div>
           <span id="tunerTargetLabel" hidden>基準: A</span>
-          <div id="tunerReadout" class="tuner-readout" hidden>待機中</div>
+          <div id="tunerReadout" hidden>待機中</div>
           <div class="tuner-threshold">
             <div class="tuner-threshold-header">
               <span>検出しきい値</span>
@@ -2594,6 +2603,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-64" defer></script>
+    <script src="script.js?v=20260619-65" defer></script>
   </body>
 </html>
