@@ -1724,25 +1724,23 @@
       .tuner-arc-container {
         position: relative;
         width: 100%;
-        height: 165px;
         margin: 6px 0 0;
       }
 
-      .tuner-arc-segment {
-        position: absolute;
-        left: 50%;
-        top: 152px;
-        width: 22px;
-        height: 58px;
-        border-radius: 7px 7px 3px 3px;
-        background: #d8d8d8;
-        transition: background 120ms ease;
+      .tuner-arc-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .tuner-arc-svg path {
+        transition: fill 120ms ease;
       }
 
       .tuner-arc-mic {
         position: absolute;
         left: 50%;
-        top: 152px;
+        top: 92%;
         width: 58px;
         height: 58px;
         transform: translate(-50%, -50%);
@@ -1766,7 +1764,7 @@
       .tuner-flat-label,
       .tuner-sharp-label {
         position: absolute;
-        top: 152px;
+        top: 74%;
         transform: translateY(-50%);
         font-size: 20px;
         color: #c8c8c8;
@@ -1777,6 +1775,33 @@
 
       .tuner-flat-label { left: 4px; font-style: italic; }
       .tuner-sharp-label { right: 4px; }
+
+      .tuner-test-section {
+        margin-top: 8px;
+        padding: 6px 8px;
+        background: rgba(0,0,0,0.04);
+        border-radius: 8px;
+      }
+      .tuner-test-label {
+        font-size: 10px;
+        color: #aaa;
+        margin-bottom: 4px;
+      }
+      .tuner-test-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .tuner-test-row button {
+        font-size: 11px;
+        padding: 3px 6px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        background: #f5f5f5;
+        cursor: pointer;
+        line-height: 1.2;
+      }
+      .tuner-test-row button:active { background: #e0e0e0; }
 
       .tuner-threshold {
         margin-top: 8px;
@@ -2565,19 +2590,17 @@
             <button id="tunerEButton" class="tool-button" type="button">E</button>
           </div>
           <div class="tuner-arc-container" id="tunerArcContainer" aria-hidden="true">
-            <div class="tuner-arc-segment" data-seg="0"></div>
-            <div class="tuner-arc-segment" data-seg="1"></div>
-            <div class="tuner-arc-segment" data-seg="2"></div>
-            <div class="tuner-arc-segment" data-seg="3"></div>
-            <div class="tuner-arc-segment" data-seg="4"></div>
-            <div class="tuner-arc-segment" data-seg="5"></div>
-            <div class="tuner-arc-segment" data-seg="6"></div>
-            <div class="tuner-arc-segment" data-seg="7"></div>
-            <div class="tuner-arc-segment" data-seg="8"></div>
-            <div class="tuner-arc-segment" data-seg="9"></div>
-            <div class="tuner-arc-segment" data-seg="10"></div>
-            <div class="tuner-arc-segment" data-seg="11"></div>
-            <div class="tuner-arc-segment" data-seg="12"></div>
+            <svg id="tunerArcSvg" class="tuner-arc-svg" viewBox="0 0 320 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path data-seg="8" d="M284.442 119.699C284.779 119.531 285.17 119.494 285.535 119.602C285.952 119.724 286.296 120.022 286.477 120.418L301.815 154.005C301.996 154.401 301.996 154.855 301.815 155.251C301.635 155.647 301.291 155.945 300.874 156.067L257.746 168.731C257.03 168.942 256.269 168.594 255.959 167.915L245.935 145.964C245.625 145.285 245.861 144.482 246.488 144.079L284.302 119.779L284.442 119.699Z" fill="#d8d8d8"/>
+              <path data-seg="7" d="M258.228 87.4287C258.663 87.4287 259.077 87.6175 259.362 87.9463L283.543 115.852C283.828 116.18 283.955 116.617 283.893 117.048C283.831 117.478 283.586 117.861 283.22 118.096L245.405 142.396C244.778 142.799 243.949 142.68 243.461 142.116L227.66 123.881C227.172 123.317 227.172 122.48 227.66 121.916L257.095 87.9463L257.208 87.8301C257.484 87.5737 257.848 87.4288 258.228 87.4287Z" fill="#d8d8d8"/>
+              <path data-seg="6" d="M222.965 64.2528C223.382 64.1303 223.832 64.1955 224.198 64.4306L255.261 84.3925C255.627 84.6276 255.873 85.0099 255.935 85.4403C255.997 85.871 255.869 86.3078 255.584 86.6366L226.149 120.605C225.661 121.169 224.833 121.288 224.205 120.885L203.904 107.84C203.277 107.436 203.041 106.634 203.351 105.955L222.023 65.0692L222.099 64.9257C222.291 64.6019 222.6 64.3601 222.965 64.2528Z" fill="#d8d8d8"/>
+              <path data-seg="5" d="M182.601 51.9492C182.967 51.7143 183.417 51.649 183.834 51.7715L219.263 62.1748C219.68 62.2975 220.023 62.5956 220.204 62.9912C220.385 63.3869 220.385 63.8417 220.204 64.2373L201.53 105.124C201.22 105.802 200.459 106.15 199.743 105.94L176.591 99.1426C175.875 98.9324 175.423 98.2276 175.529 97.4893L181.927 52.9971L181.958 52.8389C182.052 52.4738 182.28 52.1551 182.601 51.9492Z" fill="#d8d8d8"/>
+              <path data-seg="4" d="M178.463 51C178.898 51.0001 179.312 51.1888 179.597 51.5176C179.882 51.8464 180.009 52.2833 179.948 52.7139L173.55 97.2051C173.444 97.9431 172.811 98.4911 172.066 98.4912H147.935C147.189 98.4912 146.557 97.9432 146.45 97.2051L140.053 52.7139C139.991 52.2832 140.119 51.8464 140.404 51.5176C140.689 51.1889 141.102 51 141.537 51H178.463Z" fill="#d8d8d8"/>
+              <path data-seg="3" d="M136.323 51.7343C136.694 51.668 137.078 51.7435 137.398 51.9492C137.764 52.1843 138.01 52.5666 138.072 52.997L144.47 97.4892C144.576 98.2275 144.124 98.9323 143.408 99.1426L120.256 105.94C119.54 106.151 118.779 105.802 118.469 105.124L99.7949 64.2373C99.6142 63.8415 99.6142 63.3869 99.7949 62.9912C99.9756 62.5955 100.319 62.2974 100.736 62.1748L136.165 51.7715L136.323 51.7343Z" fill="#d8d8d8"/>
+              <path data-seg="2" d="M95.9417 64.3505C96.2787 64.1823 96.6693 64.1456 97.0345 64.2529C97.4517 64.3755 97.7952 64.6737 97.9759 65.0693L116.649 105.955C116.959 106.633 116.722 107.436 116.095 107.84L95.7942 120.885C95.1668 121.288 94.3384 121.169 93.8499 120.605L64.4153 86.6366C64.1304 86.3078 64.0028 85.871 64.0648 85.4404C64.1268 85.0099 64.3727 84.6276 64.7386 84.3925L95.8011 64.4306L95.9417 64.3505Z" fill="#d8d8d8"/>
+              <path data-seg="1" d="M61.7708 87.4287C62.2058 87.4288 62.6198 87.6176 62.9046 87.9463L92.3392 121.916C92.8275 122.48 92.8275 123.317 92.3392 123.881L76.5384 142.116C76.05 142.68 75.2216 142.798 74.5941 142.396L36.7796 118.096C36.4137 117.861 36.1678 117.478 36.1058 117.048C36.0438 116.617 36.1714 116.18 36.4564 115.852L60.637 87.9463L60.7503 87.8301C61.0263 87.5738 61.3902 87.4287 61.7708 87.4287Z" fill="#d8d8d8"/>
+              <path data-seg="0" d="M34.4639 119.602C34.8812 119.479 35.3314 119.544 35.6973 119.779L73.5107 144.079C74.1382 144.482 74.3742 145.285 74.0645 145.964L64.04 167.915C63.7302 168.593 62.9686 168.941 62.2529 168.731L19.125 156.067C18.7076 155.945 18.3643 155.647 18.1836 155.251C18.0029 154.855 18.0029 154.401 18.1836 154.005L33.5225 120.418L33.5977 120.274C33.7902 119.951 34.0987 119.709 34.4639 119.602Z" fill="#d8d8d8"/>
+            </svg>
             <div class="tuner-flat-label" aria-hidden="true">♭</div>
             <div class="tuner-sharp-label" aria-hidden="true">♯</div>
             <button id="micTunerToggleButton" class="tuner-arc-mic" type="button" aria-label="マイクチューナー開始/停止">
@@ -2589,6 +2612,22 @@
           </div>
           <div id="tunerNoteDisplay" class="tuner-note-display">--</div>
           <div id="tunerDirectionDisplay" class="tuner-direction">音を鳴らしてください</div>
+          <div class="tuner-test-section">
+            <div class="tuner-test-label">テスト用（臨時）</div>
+            <div class="tuner-test-row">
+              <button type="button" onclick="simulateTunerFrequency(420)">420</button>
+              <button type="button" onclick="simulateTunerFrequency(424)">424</button>
+              <button type="button" onclick="simulateTunerFrequency(428)">428</button>
+              <button type="button" onclick="simulateTunerFrequency(432)">432</button>
+              <button type="button" onclick="simulateTunerFrequency(436)">436</button>
+              <button type="button" onclick="simulateTunerFrequency(440)">440</button>
+              <button type="button" onclick="simulateTunerFrequency(444)">444</button>
+              <button type="button" onclick="simulateTunerFrequency(448)">448</button>
+              <button type="button" onclick="simulateTunerFrequency(452)">452</button>
+              <button type="button" onclick="simulateTunerFrequency(456)">456</button>
+              <button type="button" onclick="simulateTunerFrequency(460)">460</button>
+            </div>
+          </div>
           <span id="tunerTargetLabel" hidden>基準: A</span>
           <div id="tunerReadout" hidden>待機中</div>
           <div class="tuner-threshold">
@@ -2609,6 +2648,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-66" defer></script>
+    <script src="script.js?v=20260619-67" defer></script>
   </body>
 </html>

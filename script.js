@@ -459,30 +459,14 @@ const previewState = {
 const previewScale = 0.8;
 
 // チューナー弧メーター設定
-const TUNER_ARC_SEGS = 13;
-const TUNER_ARC_CENTER = 6; // 中央セグメント (0 cents)
-const TUNER_ARC_MID_R = 111; // 弧の中間半径 (px)
-const TUNER_ARC_MIN_DEG = -72;
-const TUNER_ARC_MAX_DEG = 72;
-// 外→内へ向かう色 (0=左端/フラット, 6=中央, 12=右端/シャープ)
+const TUNER_ARC_SEGS = 9;
+const TUNER_ARC_CENTER = 4; // 中央セグメント (0 cents)
+// 外→内へ向かう色 (0=左端/フラット, 4=中央, 8=右端/シャープ)
 const TUNER_SEG_COLORS = [
-  '#c84337','#c84337','#d4722e','#e7b14d','#e7b14d','#9ec940',
+  '#8B1A1A', '#C0392B', '#D35400', '#E07820',
   '#2a9d62',
-  '#9ec940','#e7b14d','#e7b14d','#d4722e','#c84337','#c84337',
+  '#E07820', '#D35400', '#C0392B', '#8B1A1A',
 ];
-
-function setupTunerArcSegments() {
-  const container = document.getElementById('tunerArcContainer');
-  if (!container) return;
-  const segs = container.querySelectorAll('.tuner-arc-segment');
-  segs.forEach((seg, i) => {
-    const deg = TUNER_ARC_MIN_DEG + (i / (TUNER_ARC_SEGS - 1)) * (TUNER_ARC_MAX_DEG - TUNER_ARC_MIN_DEG);
-    const rad = deg * Math.PI / 180;
-    const x = Math.sin(rad) * TUNER_ARC_MID_R;
-    const y = -Math.cos(rad) * TUNER_ARC_MID_R;
-    seg.style.transform = `translate(calc(-50% + ${x.toFixed(1)}px), calc(-50% + ${y.toFixed(1)}px)) rotate(${deg.toFixed(1)}deg)`;
-  });
-}
 
 const tunerThresholdBase = {
   rms: 0.002,
@@ -3217,8 +3201,10 @@ function getNearestNoteInfo(frequency) {
 }
 
 function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
-  const container = document.getElementById('tunerArcContainer');
-  const segs = container ? container.querySelectorAll('.tuner-arc-segment') : [];
+  const svgEl = document.getElementById('tunerArcSvg');
+  const segs = svgEl
+    ? Array.from(svgEl.querySelectorAll('[data-seg]')).sort((a, b) => +a.dataset.seg - +b.dataset.seg)
+    : [];
 
   if (detectedHz && noteInfo) {
     const c = noteInfo.cents;
@@ -3228,7 +3214,7 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
     const hi = Math.max(TUNER_ARC_CENTER, activeIdx);
 
     segs.forEach((seg, i) => {
-      seg.style.background = (i >= lo && i <= hi) ? TUNER_SEG_COLORS[i] : '#d8d8d8';
+      seg.setAttribute('fill', (i >= lo && i <= hi) ? TUNER_SEG_COLORS[i] : '#d8d8d8');
     });
 
     const absCents = Math.abs(c);
@@ -3255,7 +3241,7 @@ function updateTunerNeedle(cents, detectedHz = null, noteInfo = null) {
       tunerDirectionDisplay.style.color = dirColor;
     }
   } else {
-    segs.forEach(seg => { seg.style.background = '#d8d8d8'; });
+    segs.forEach(seg => { seg.setAttribute('fill', '#d8d8d8'); });
     if (tunerNoteDisplay) {
       tunerNoteDisplay.textContent = '--';
       tunerNoteDisplay.style.color = 'var(--sub, #999)';
@@ -4996,7 +4982,6 @@ applyActiveToolButtonState();
 applyLayoutButtonState();
 updateStampSizeUI();
 setTunerTargetNote('A');
-setupTunerArcSegments();
 updateTunerNeedle(0, null);
 updateMetronomeUI();
 applyMetronomeOptionButtonState();
@@ -5015,6 +5000,11 @@ const exposedGetScoresInFolder = getScoresInFolder;
 
 window.setAnnotationStampImages = (sources) => {
   setAnnotationStampImages(sources);
+};
+window.simulateTunerFrequency = function(hz) {
+  const noteInfo = getNearestNoteInfo(hz);
+  tunerFreqHistory = [hz];
+  updateTunerNeedle(noteInfo.cents, hz, noteInfo);
 };
 window.setReaderLayoutModeFallback = (mode) => {
   setReaderLayoutMode(mode);
