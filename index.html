@@ -1596,53 +1596,6 @@
         transform: translateY(-4px);
       }
 
-      .metro-swing {
-        height: 128px;
-        display: grid;
-        place-items: center;
-        margin-bottom: 4px;
-      }
-
-      .metro-rail {
-        position: relative;
-        width: 10px;
-        height: 98px;
-        background: #d9ad71;
-        border-radius: 999px;
-        touch-action: none;
-      }
-
-      .metro-arm {
-        position: absolute;
-        left: 50%;
-        top: 0;
-        width: 4px;
-        height: 98px;
-        transform-origin: bottom center;
-        transform: translateX(-2px) rotate(0deg);
-        transition: transform 120ms ease-out;
-      }
-
-      .metro-weight {
-        position: absolute;
-        left: 50%;
-        top: 44px;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: #f6f6f6;
-        box-shadow: -3px 4px 0 rgba(0, 0, 0, 0.2);
-        transform: translateX(-14px);
-        touch-action: none;
-        cursor: ns-resize;
-      }
-
-      .metro-marking {
-        text-align: center;
-        font-size: 18px;
-        margin-top: 2px;
-      }
-
       .metro-bpm-row {
         margin-top: 2px;
         display: flex;
@@ -1789,7 +1742,7 @@
       #tunerPanel {
         top: auto;
         bottom: 16px;
-        max-height: calc(58% - 8px);
+        max-height: calc(50% - 20px);
       }
 
       .reader-stage {
@@ -1948,9 +1901,9 @@
         }
 
         #tunerPanel {
-          top: calc(46dvh + 4px);
+          top: calc(50dvh + 4px);
           bottom: auto;
-          max-height: calc(54dvh - 16px);
+          max-height: calc(50dvh - 16px);
         }
 
         /* ツール toggle: ダークピル */
@@ -2468,14 +2421,6 @@
         <div id="readerStage" class="reader-stage"></div>
         <section id="metronomePanel" class="metronome-panel floating-panel feature-panel" aria-label="メトロノーム" hidden>
           <button class="panel-close-btn" type="button" onclick="window.toggleMetronomeWindowFallback && window.toggleMetronomeWindowFallback()" aria-label="閉じる">✕</button>
-          <div class="metro-swing">
-            <div class="metro-rail">
-              <div id="metronomeArm" class="metro-arm">
-                <div id="metronomeWeight" class="metro-weight"></div>
-              </div>
-            </div>
-          </div>
-          <div id="metronomeMarking" class="metro-marking">Andante</div>
           <div class="metro-bpm-row">
             <button id="metronomeMinusButton" class="metro-adjust" type="button">−</button>
             <div id="metronomeBpmValue" class="metro-bpm">100</div>
@@ -2561,6 +2506,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-76" defer></script>
+    <script src="script.js?v=20260619-77" defer></script>
   </body>
 </html>
