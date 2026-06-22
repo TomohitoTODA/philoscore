@@ -5518,8 +5518,17 @@ async function loadAnnotationsFromDrive(folderId) {
   }
 }
 
+// Google GSI は async 読み込みのため window.load より遅れることがある。
+// onGoogleLibraryLoad はライブラリ準備完了時に必ず呼ばれる公式コールバック。
+window.onGoogleLibraryLoad = () => {
+  if (!googleTokenClient) initGoogleAuth();
+};
+
 window.addEventListener('load', () => {
-  initGoogleAuth();
+  // フォールバック: GSI が load より先に完了していた場合
+  if (window.google?.accounts?.oauth2 && !googleTokenClient) {
+    initGoogleAuth();
+  }
 });
 
 (function preloadSymbolImages() {
