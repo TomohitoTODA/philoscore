@@ -5217,6 +5217,12 @@ function initGoogleTokenClient() {
     client_id: GOOGLE_CLIENT_ID,
     scope: DRIVE_SCOPE,
     callback: handleTokenResponse,
+    error_callback: (err) => {
+      const msg = err?.type ?? err?.message ?? JSON.stringify(err);
+      console.error('Google OAuth error:', err);
+      if (driveStatus) driveStatus.textContent = 'ログイン失敗: ' + msg;
+      alert('Googleログインに失敗しました: ' + msg);
+    },
   });
   return true;
 }
@@ -5244,7 +5250,11 @@ if (loginButton) {
       return;
     }
     initGoogleTokenClient();
-    googleTokenClient.requestAccessToken();
+    try {
+      googleTokenClient.requestAccessToken();
+    } catch (e) {
+      alert('Google認証エラー: ' + e.message);
+    }
   });
 }
 
