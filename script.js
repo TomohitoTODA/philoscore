@@ -120,9 +120,13 @@ const focusMetronomeBeatIndicator = document.getElementById('focusMetronomeBeatI
 const tunerWindowToggle = document.getElementById('tunerWindowToggle');
 const metronomePanel = document.getElementById('metronomePanel');
 const tunerPanel = document.getElementById('tunerPanel');
+const metronomeArm = document.getElementById('metronomeArm');
+const metronomeRail = document.querySelector('.metro-rail');
+const metronomeWeight = document.getElementById('metronomeWeight');
 const metronomeMinusButton = document.getElementById('metronomeMinusButton');
 const metronomePlusButton = document.getElementById('metronomePlusButton');
 const metronomeBpmValue = document.getElementById('metronomeBpmValue');
+const metronomeMarking = document.getElementById('metronomeMarking');
 const metronomeToggleButton = document.getElementById('metronomeToggleButton');
 const timeSignatureButtons = document.querySelectorAll('[data-time-signature]');
 const rhythmButtons = document.querySelectorAll('[data-rhythm]');
@@ -264,7 +268,9 @@ let annotationContext = null;
 let activeAnnotationPage = 1;
 let audioContext = null;
 let metronomeTimerId = null;
+let metronomeSwingTimerId = null;
 let isMetronomeRunning = false;
+let metronomeSwingDirection = 1;
 let metronomeBeatIndex = 0;
 let metronomeSubIndex = 0;
 let tunerOscillator = null;
@@ -2488,6 +2494,8 @@ function getTempoMarking(bpm) {
 
 function updateMetronomeUI() {
   metronomeBpmValue.textContent = String(metronomeBpm);
+  if (metronomeMarking) metronomeMarking.textContent = getTempoMarking(metronomeBpm);
+  updateMetronomeWeightPositionFromBpm();
 }
 
 function applyMetronomeOptionButtonState() {
@@ -2896,6 +2904,63 @@ function getBeatIntervalMs() {
     return (60000 / metronomeBpm) / 3;
   }
   return 60000 / metronomeBpm;
+}
+
+function getMetronomeSwingIntervalMs() {
+  return 60000 / metronomeBpm;
+}
+
+function animateMetronomeSwing() {
+  const beatMs = getMetronomeSwingIntervalMs();
+  metronomeArm.style.transition = `transform ${Math.max(120, Math.round(beatMs * 0.72))}ms cubic-bezier(0.22, 0.8, 0.22, 1)`;
+  metronomeWeight.style.transition = `box-shadow ${Math.max(120, Math.round(beatMs * 0.72))}ms cubic-bezier(0.22, 0.8, 0.22, 1)`;
+  const angle = 14 * metronomeSwingDirection;
+  metronomeArm.style.transform = `translateX(-2px) rotate(${angle}deg)`;
+  metronomeWeight.style.boxShadow = metronomeSwingDirection > 0
+    ? '-4px 6px 0 rgba(0, 0, 0, 0.2)'
+    : '4px 6px 0 rgba(0, 0, 0, 0.2)';
+  metronomeSwingDirection *= -1;
+}
+
+function stopMetronomeSwingTimer() {
+  if (metronomeSwingTimerId !== null) {
+    window.clearTimeout(metronomeSwingTimerId);
+    metronomeSwingTimerId = null;
+  }
+}
+
+function scheduleMetronomeSwing() {
+  if (!isMetronomeRunning) {
+    return;
+  }
+  animateMetronomeSwing();
+  metronomeSwingTimerId = window.setTimeout(() => {
+    scheduleMetronomeSwing();
+  }, getMetronomeSwingIntervalMs());
+}
+
+function resetMetronomeSwing() {
+  metronomeArm.style.transform = 'translateX(-2px) rotate(0deg)';
+  metronomeWeight.style.boxShadow = '-4px 6px 0 rgba(0, 0, 0, 0.2)';
+}
+
+function getMetronomeWeightRange() {
+  const railHeight = metronomeRail ? (metronomeRail.clientHeight || 98) : 98;
+  const weightHeight = metronomeWeight ? (metronomeWeight.clientHeight || 28) : 28;
+  const minTop = 4;
+  const maxTop = Math.max(minTop, railHeight - weightHeight - 4);
+  return { minTop, maxTop };
+}
+
+function updateMetronomeWeightPositionFromBpm() {
+  if (!metronomeWeight) {
+    return;
+  }
+  const { minTop, maxTop } = getMetronomeWeightRange();
+  const ratio = (metronomeBpm - 40) / 200;
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const top = Math.round(minTop + (maxTop - minTop) * clamped);
+  metronomeWeight.style.top = `${top}px`;
 }
 
 function getMetronomeBeatsPerMeasure() {
@@ -3366,11 +3431,13 @@ function stopMetronome() {
     window.clearTimeout(metronomeTimerId);
     metronomeTimerId = null;
   }
+  stopMetronomeSwingTimer();
   isMetronomeRunning = false;
   metronomeBeatIndex = 0;
   metronomeSubIndex = 0;
   metronomeToggleButton.textContent = 'START';
   metronomeToggleButton.classList.remove('running');
+  resetMetronomeSwing();
   updateMetronomeBeatIndicator(0);
 }
 
@@ -3420,6 +3487,7 @@ async function startMetronome() {
   metronomeToggleButton.textContent = 'STOP';
   metronomeToggleButton.classList.add('running');
 
+  scheduleMetronomeSwing();
   await tickMetronome();
 }
 
