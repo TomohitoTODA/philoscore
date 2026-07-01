@@ -3140,6 +3140,7 @@ function setReaderFocusMode(nextValue) {
 
   if (isReaderFocusMode) {
     clearActiveTool();
+    setSidebarOpen(false);
     setFloatingWindowVisible(tunerPanel, tunerWindowToggle, false, 'チューナー');
     reader.classList.add('focus-mode');
   } else {
@@ -5617,6 +5618,7 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
     input.value = sz;
     dropdown.querySelectorAll('.ab-sz-opt').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.val) === sz));
     const newScale = sz / BASE_SIZE;
+    stampSizeMultiplier = newScale;
     if (selectedStamp) {
       const data = annotationStrokes.get(selectedStamp.key);
       if (data && data.ops[selectedStamp.index]) {
@@ -5628,8 +5630,6 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
         drawSelectedStampHighlight(data.ops[selectedStamp.index], annotationCanvas);
         persistCurrentAnnotation();
       }
-    } else {
-      stampSizeMultiplier = newScale;
     }
   }
 
@@ -5762,7 +5762,7 @@ document.addEventListener('keydown', (event) => {
   if (slurState !== null && isReaderOpen()) {
     const t = event.target;
     const inInput = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
-    if (!inInput && (event.key === 'Backspace' || event.key === 'Escape')) {
+    if (!inInput && (event.key === 'Backspace' || event.key === 'Escape' || event.key === 'Enter')) {
       event.preventDefault();
       slurState = null;
       const _key = getAnnotationKey();
