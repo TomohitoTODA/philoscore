@@ -1316,7 +1316,7 @@
         border-radius: 10px;
         padding: 8px;
         box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-        z-index: 60;
+        z-index: 110;
         align-items: center;
         pointer-events: none;
       }
@@ -1604,7 +1604,7 @@
       }
 
       .reader.focus-mode .annotation-strip {
-        display: none;
+        display: none !important;
       }
 
       .reader.focus-mode .reader-main {
@@ -2129,12 +2129,12 @@
         overflow: visible;
       }
       .ab-sz-input {
-        width: 34px;
+        width: 28px;
         border: none;
         background: transparent;
         font-size: 13px;
         font-variant-numeric: tabular-nums;
-        text-align: right;
+        text-align: center;
         padding: 3px 0 3px 6px;
         outline: none;
         -moz-appearance: textfield;
@@ -2142,11 +2142,27 @@
       }
       .ab-sz-input::-webkit-outer-spin-button,
       .ab-sz-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-      .ab-sz-unit {
-        font-size: 11px;
-        color: var(--text-dim, #888);
-        padding-right: 2px;
+      .ab-sz-spinners {
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--line, #ddd);
       }
+      .ab-sz-stepbtn {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        padding: 0 4px;
+        font-size: 7px;
+        line-height: 1;
+        height: 12px;
+        color: var(--text-dim, #666);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        transition: background 0.1s;
+      }
+      .ab-sz-stepbtn:hover { background: rgba(0,0,0,0.08); }
       .ab-sz-dropbtn {
         border: none;
         background: transparent;
@@ -2934,8 +2950,11 @@
               <button class="ab-size" data-size="L" type="button" aria-label="太"></button>
               <div class="ab-stamp-size-row">
                 <div class="ab-sz-picker" id="abSzPicker">
-                  <input type="number" id="abStampSizePct" class="ab-sz-input" min="70" max="200" value="100" aria-label="スタンプサイズ %">
-                  <span class="ab-sz-unit">%</span>
+                  <input type="number" id="abStampSizePct" class="ab-sz-input" min="7" max="20" value="12" aria-label="フォントサイズ">
+                  <div class="ab-sz-spinners">
+                    <button class="ab-sz-stepbtn" id="abSzIncBtn" type="button" aria-label="大きく">▲</button>
+                    <button class="ab-sz-stepbtn" id="abSzDecBtn" type="button" aria-label="小さく">▼</button>
+                  </div>
                   <button class="ab-sz-dropbtn" type="button" aria-haspopup="listbox" aria-expanded="false">▾</button>
                   <div class="ab-sz-dropdown" id="abSzDropdown" hidden role="listbox"></div>
                 </div>
@@ -3195,6 +3214,6 @@
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260701-05" defer></script>
+    <script src="script.js?v=20260701-06" defer></script>
   </body>
 </html>

@@ -1972,13 +1972,13 @@ function clearActiveTool() {
 }
 
 function syncStampSizePicker(scale) {
+  const fs = Math.max(7, Math.min(20, Math.round(scale * 12)));
   const input = document.getElementById('abStampSizePct');
-  if (input) input.value = Math.round(scale * 100);
+  if (input) input.value = fs;
   const dropdown = document.getElementById('abSzDropdown');
   if (dropdown) {
-    const pct = Math.round(scale * 100);
     dropdown.querySelectorAll('.ab-sz-opt').forEach(btn => {
-      btn.classList.toggle('selected', parseInt(btn.dataset.val) === pct);
+      btn.classList.toggle('selected', parseInt(btn.dataset.val) === fs);
     });
   }
 }
@@ -5592,12 +5592,15 @@ bindTap(exportAnnotatedPdfButton, exportAnnotatedPdf);
 bindTap(document.getElementById('stampSizeDecButton'), () => adjustStampSize(-1));
 bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1));
 (function setupStampSizePicker() {
-  const PRESETS = [70, 75, 80, 85, 90, 95, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
-  const picker   = document.getElementById('abSzPicker');
-  const input    = document.getElementById('abStampSizePct');
-  const dropdown = document.getElementById('abSzDropdown');
+  const PRESETS     = [7, 8, 9, 10, 11, 12, 14, 16, 18, 20];
+  const BASE_SIZE   = 12; // fontSize 12 = stampSizeMultiplier 1.0
+  const picker      = document.getElementById('abSzPicker');
+  const input       = document.getElementById('abStampSizePct');
+  const dropdown    = document.getElementById('abSzDropdown');
   if (!picker || !input || !dropdown) return;
   const dropBtn = picker.querySelector('.ab-sz-dropbtn');
+  const incBtn  = document.getElementById('abSzIncBtn');
+  const decBtn  = document.getElementById('abSzDecBtn');
 
   PRESETS.forEach(val => {
     const btn = document.createElement('button');
@@ -5609,11 +5612,11 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
     dropdown.appendChild(btn);
   });
 
-  function applyScale(pct) {
-    pct = Math.max(70, Math.min(200, Math.round(pct)));
-    input.value = pct;
-    dropdown.querySelectorAll('.ab-sz-opt').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.val) === pct));
-    const newScale = pct / 100;
+  function applyFontSize(sz) {
+    sz = Math.max(7, Math.min(20, Math.round(sz)));
+    input.value = sz;
+    dropdown.querySelectorAll('.ab-sz-opt').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.val) === sz));
+    const newScale = sz / BASE_SIZE;
     if (selectedStamp) {
       const data = annotationStrokes.get(selectedStamp.key);
       if (data && data.ops[selectedStamp.index]) {
@@ -5630,6 +5633,8 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
     }
   }
 
+  function currentFontSize() { return Math.max(7, Math.min(20, parseInt(input.value) || BASE_SIZE)); }
+
   function openDropdown() {
     dropdown.hidden = false;
     if (dropBtn) dropBtn.setAttribute('aria-expanded', 'true');
@@ -5641,10 +5646,27 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
     if (dropBtn) dropBtn.setAttribute('aria-expanded', 'false');
   }
 
-  input.addEventListener('change', () => applyScale(parseInt(input.value) || 100));
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyScale(parseInt(input.value) || 100); closeDropdown(); } });
+  input.addEventListener('change', () => applyFontSize(parseInt(input.value) || BASE_SIZE));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); applyFontSize(currentFontSize()); closeDropdown(); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); applyFontSize(currentFontSize() + 1); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); applyFontSize(currentFontSize() - 1); }
+  });
+  input.addEventListener('wheel', e => {
+    e.preventDefault();
+    applyFontSize(currentFontSize() + (e.deltaY < 0 ? 1 : -1));
+  }, { passive: false });
   input.addEventListener('pointerdown', e => e.stopPropagation());
   input.addEventListener('click', e => e.stopPropagation());
+
+  if (incBtn) {
+    incBtn.addEventListener('click', e => { e.stopPropagation(); applyFontSize(currentFontSize() + 1); });
+    incBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  }
+  if (decBtn) {
+    decBtn.addEventListener('click', e => { e.stopPropagation(); applyFontSize(currentFontSize() - 1); });
+    decBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  }
 
   if (dropBtn) {
     dropBtn.addEventListener('click', e => { e.stopPropagation(); dropdown.hidden ? openDropdown() : closeDropdown(); });
@@ -5656,7 +5678,7 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
     const btn = e.target.closest('.ab-sz-opt');
     if (!btn) return;
     e.stopPropagation();
-    applyScale(parseInt(btn.dataset.val));
+    applyFontSize(parseInt(btn.dataset.val));
     closeDropdown();
   });
 
