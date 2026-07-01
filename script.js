@@ -1850,10 +1850,8 @@ function updateAbBar() {
   abColorSizePanel.classList.toggle('has-stamp-size', isAccidental || isBowing || isFinger);
   const abStampSizeSlider = document.getElementById('abStampSizeSlider');
   const abStampSizePct    = document.getElementById('abStampSizePct');
-  if (abStampSizeSlider && (isAccidental || isBowing || isFinger)) {
-    const pct = Math.round(stampSizeMultiplier * 100);
-    abStampSizeSlider.value = pct;
-    if (abStampSizePct) abStampSizePct.textContent = pct + '%';
+  if (isAccidental || isBowing || isFinger) {
+    syncStampSizePicker(stampSizeMultiplier);
   }
 
   // ツール選択中はサブパネルを常に表示
@@ -1973,11 +1971,16 @@ function clearActiveTool() {
   if (abAccidentalPanel) abAccidentalPanel.hidden = true;
 }
 
-function syncStampSizeSlider(scale) {
-  const slider = document.getElementById('abStampSizeSlider');
-  const pctLabel = document.getElementById('abStampSizePct');
-  if (slider) slider.value = Math.round(scale * 100);
-  if (pctLabel) pctLabel.textContent = Math.round(scale * 100) + '%';
+function syncStampSizePicker(scale) {
+  const input = document.getElementById('abStampSizePct');
+  if (input) input.value = Math.round(scale * 100);
+  const dropdown = document.getElementById('abSzDropdown');
+  if (dropdown) {
+    const pct = Math.round(scale * 100);
+    dropdown.querySelectorAll('.ab-sz-opt').forEach(btn => {
+      btn.classList.toggle('selected', parseInt(btn.dataset.val) === pct);
+    });
+  }
 }
 
 function clearSelectedStamp() {
@@ -1986,7 +1989,7 @@ function clearSelectedStamp() {
   if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
   selectedStamp = null;
   if (activeTool === 'accidental' || activeTool === 'bowing' || activeTool === 'finger') {
-    syncStampSizeSlider(stampSizeMultiplier);
+    syncStampSizePicker(stampSizeMultiplier);
   }
 }
 
@@ -2667,7 +2670,7 @@ function beginDrawing(event) {
       const sp = denormPt([op.x, op.y], annotationCanvas);
       stampDragState = { key, index: hit.index, canvas: annotationCanvas, offX: sp.x - pt.x, offY: sp.y - pt.y };
       selectedStamp = { key, index: hit.index };
-      syncStampSizeSlider(op.sc ?? 1.0);
+      syncStampSizePicker(op.sc ?? 1.0);
       return;
     }
     // No hit: clear selection and place new stamp if applicable
@@ -2910,7 +2913,7 @@ function stopDrawing() {
     selectedStamp = { key, index };
     if (op) {
       drawSelectedStampHighlight(op, stampDragState.canvas);
-      syncStampSizeSlider(op.sc ?? 1.0);
+      syncStampSizePicker(op.sc ?? 1.0);
     }
     stampDragState = null;
     return;
@@ -5588,13 +5591,29 @@ bindTap(clearAnnotationButton, clearCurrentAnnotation);
 bindTap(exportAnnotatedPdfButton, exportAnnotatedPdf);
 bindTap(document.getElementById('stampSizeDecButton'), () => adjustStampSize(-1));
 bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1));
-(function () {
-  const slider = document.getElementById('abStampSizeSlider');
-  const pctLabel = document.getElementById('abStampSizePct');
-  if (!slider) return;
-  slider.addEventListener('input', () => {
-    const newScale = slider.value / 100;
-    if (pctLabel) pctLabel.textContent = slider.value + '%';
+(function setupStampSizePicker() {
+  const PRESETS = [70, 75, 80, 85, 90, 95, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
+  const picker   = document.getElementById('abSzPicker');
+  const input    = document.getElementById('abStampSizePct');
+  const dropdown = document.getElementById('abSzDropdown');
+  if (!picker || !input || !dropdown) return;
+  const dropBtn = picker.querySelector('.ab-sz-dropbtn');
+
+  PRESETS.forEach(val => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ab-sz-opt';
+    btn.dataset.val = val;
+    btn.textContent = val;
+    btn.setAttribute('role', 'option');
+    dropdown.appendChild(btn);
+  });
+
+  function applyScale(pct) {
+    pct = Math.max(70, Math.min(200, Math.round(pct)));
+    input.value = pct;
+    dropdown.querySelectorAll('.ab-sz-opt').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.val) === pct));
+    const newScale = pct / 100;
     if (selectedStamp) {
       const data = annotationStrokes.get(selectedStamp.key);
       if (data && data.ops[selectedStamp.index]) {
@@ -5609,8 +5628,39 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
     } else {
       stampSizeMultiplier = newScale;
     }
+  }
+
+  function openDropdown() {
+    dropdown.hidden = false;
+    if (dropBtn) dropBtn.setAttribute('aria-expanded', 'true');
+    const sel = dropdown.querySelector('.ab-sz-opt.selected');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  function closeDropdown() {
+    dropdown.hidden = true;
+    if (dropBtn) dropBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  input.addEventListener('change', () => applyScale(parseInt(input.value) || 100));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyScale(parseInt(input.value) || 100); closeDropdown(); } });
+  input.addEventListener('pointerdown', e => e.stopPropagation());
+  input.addEventListener('click', e => e.stopPropagation());
+
+  if (dropBtn) {
+    dropBtn.addEventListener('click', e => { e.stopPropagation(); dropdown.hidden ? openDropdown() : closeDropdown(); });
+    dropBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  }
+
+  dropdown.addEventListener('pointerdown', e => e.stopPropagation());
+  dropdown.addEventListener('click', e => {
+    const btn = e.target.closest('.ab-sz-opt');
+    if (!btn) return;
+    e.stopPropagation();
+    applyScale(parseInt(btn.dataset.val));
+    closeDropdown();
   });
-  slider.addEventListener('pointerdown', e => e.stopPropagation());
+
+  document.addEventListener('pointerdown', () => { if (!dropdown.hidden) closeDropdown(); });
 }());
 bindTap(toolRedPenButton, () => setActiveTool('redPen'));
 bindTap(toolMarkerButton, () => setActiveTool('marker'));
@@ -5686,6 +5736,19 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  // スラーP1配置後のキャンセル
+  if (slurState !== null && isReaderOpen()) {
+    const t = event.target;
+    const inInput = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable);
+    if (!inInput && (event.key === 'Backspace' || event.key === 'Escape')) {
+      event.preventDefault();
+      slurState = null;
+      const _key = getAnnotationKey();
+      const _lc = _key ? liveAnnotationCanvases.get(_key) : null;
+      if (_lc) _lc.getContext('2d').clearRect(0, 0, _lc.width, _lc.height);
+      return;
+    }
+  }
   // 選択中スラーの削除・解除（他のEnterハンドラより優先）
   if (selectedSlur !== null && isReaderOpen()) {
     if (event.key === 'Delete' || event.key === 'Backspace') {
