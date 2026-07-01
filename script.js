@@ -1973,11 +1973,21 @@ function clearActiveTool() {
   if (abAccidentalPanel) abAccidentalPanel.hidden = true;
 }
 
+function syncStampSizeSlider(scale) {
+  const slider = document.getElementById('abStampSizeSlider');
+  const pctLabel = document.getElementById('abStampSizePct');
+  if (slider) slider.value = Math.round(scale * 100);
+  if (pctLabel) pctLabel.textContent = Math.round(scale * 100) + '%';
+}
+
 function clearSelectedStamp() {
   if (!selectedStamp) return;
   const lc = selectedStamp.key ? liveAnnotationCanvases.get(selectedStamp.key) : null;
   if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
   selectedStamp = null;
+  if (activeTool === 'accidental' || activeTool === 'bowing' || activeTool === 'finger') {
+    syncStampSizeSlider(stampSizeMultiplier);
+  }
 }
 
 function deleteSelectedStamp() {
@@ -2018,7 +2028,7 @@ function drawSelectedStampHighlight(op, canvas) {
   lctx.clearRect(0, 0, lc.width, lc.height);
   const sx = op.x * lc.width, sy = op.y * lc.height;
   const dpr = canvas._imgDpr || 1;
-  const fontSize = getStampFontSize(canvas, 1, op.size) / dpr;
+  const fontSize = getStampFontSize(canvas, 1, op.size, op.sc ?? 1.0) / dpr;
   const halfSz = fontSize / 2 + 10;
   lctx.save();
   lctx.strokeStyle = '#2979ff';
@@ -2043,9 +2053,10 @@ function setLastAnnotationPoint(event, canvas) {
   return lastAnnotationPoint;
 }
 
-function getStampFontSize(canvas, multiplier = 1, ratio = 0.032) {
+function getStampFontSize(canvas, multiplier = 1, ratio = 0.032, scaleOverride = null) {
   const base = Math.min(canvas.width, canvas.height);
-  return Math.max(6, Math.round(base * ratio * multiplier * stampSizeMultiplier));
+  const scale = scaleOverride !== null ? scaleOverride : stampSizeMultiplier;
+  return Math.max(6, Math.round(base * ratio * multiplier * scale));
 }
 
 function getStampImage(name) {
@@ -2401,7 +2412,7 @@ function placeAnnotationStamp(value = null) {
   }
 
   annotationContext.restore();
-  pushAnnotationOp({ op: 'stamp', tt: tool.type, v: value, x: point.x / annotationCanvas.width, y: point.y / annotationCanvas.height, c: tool.color, size: tool.size });
+  pushAnnotationOp({ op: 'stamp', tt: tool.type, v: value, x: point.x / annotationCanvas.width, y: point.y / annotationCanvas.height, c: tool.color, size: tool.size, sc: stampSizeMultiplier });
   persistCurrentAnnotation();
   return true;
 }
@@ -2656,6 +2667,7 @@ function beginDrawing(event) {
       const sp = denormPt([op.x, op.y], annotationCanvas);
       stampDragState = { key, index: hit.index, canvas: annotationCanvas, offX: sp.x - pt.x, offY: sp.y - pt.y };
       selectedStamp = { key, index: hit.index };
+      syncStampSizeSlider(op.sc ?? 1.0);
       return;
     }
     // No hit: clear selection and place new stamp if applicable
@@ -2769,7 +2781,7 @@ function drawLine(event) {
       lctx.clearRect(0, 0, lc.width, lc.height);
       const sx = op.x * lc.width, sy = op.y * lc.height;
       const dpr = canvas._imgDpr || 1;
-      const fontSize = getStampFontSize(canvas, 1, op.size) / dpr;
+      const fontSize = getStampFontSize(canvas, 1, op.size, op.sc ?? 1.0) / dpr;
       const halfSz = fontSize / 2 + 10;
       lctx.save();
       lctx.strokeStyle = '#2979ff';
@@ -2896,7 +2908,10 @@ function stopDrawing() {
     const op = data ? data.ops[index] : null;
     persistCurrentAnnotation();
     selectedStamp = { key, index };
-    if (op) drawSelectedStampHighlight(op, stampDragState.canvas);
+    if (op) {
+      drawSelectedStampHighlight(op, stampDragState.canvas);
+      syncStampSizeSlider(op.sc ?? 1.0);
+    }
     stampDragState = null;
     return;
   }
@@ -3424,7 +3439,7 @@ function replayStampOp(ctx, canvas, op) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const fontSize = getStampFontSize(canvas, 1, op.size);
+  const fontSize = getStampFontSize(canvas, 1, op.size, op.sc ?? 1.0);
   if (op.tt === 'number') {
     drawOutlinedText(String(op.v ?? ''), pt, fontSize, op.c, 700);
   } else if (op.tt === 'accidental') {
@@ -3437,7 +3452,7 @@ function replayStampOp(ctx, canvas, op) {
   } else if (op.tt === 'freeText') {
     drawOutlinedText(String(op.v ?? ''), pt, fontSize, op.c, 300);
   } else if (op.tt === 'circle') {
-    const radius = getStampFontSize(canvas, 0.56);
+    const radius = getStampFontSize(canvas, 0.56, 0.032, op.sc ?? 1.0);
     const sz = radius * 2.1;
     if (!drawSymbolOnCanvas('circle', op.c, pt.x, pt.y, sz)) {
       ctx.strokeStyle = op.c;
@@ -5578,8 +5593,22 @@ bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1))
   const pctLabel = document.getElementById('abStampSizePct');
   if (!slider) return;
   slider.addEventListener('input', () => {
-    stampSizeMultiplier = slider.value / 100;
+    const newScale = slider.value / 100;
     if (pctLabel) pctLabel.textContent = slider.value + '%';
+    if (selectedStamp) {
+      const data = annotationStrokes.get(selectedStamp.key);
+      if (data && data.ops[selectedStamp.index]) {
+        data.ops[selectedStamp.index].sc = newScale;
+        if (annotationCanvas && annotationContext) {
+          annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+          if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+        }
+        drawSelectedStampHighlight(data.ops[selectedStamp.index], annotationCanvas);
+        persistCurrentAnnotation();
+      }
+    } else {
+      stampSizeMultiplier = newScale;
+    }
   });
   slider.addEventListener('pointerdown', e => e.stopPropagation());
 }());
