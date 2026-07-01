@@ -4452,17 +4452,17 @@ function setupAnnotationCanvas() {
         return;
       }
 
+      const dpr = window.devicePixelRatio || 1;
       let width, height;
       if (baseElement.tagName === 'CANVAS') {
-        width = baseElement.width;
-        height = baseElement.height;
-        drawCanvas._imgDpr = null;
+        // Use at least DPR-aware CSS size so retina displays get sharp annotations
+        width = Math.max(baseElement.width, Math.round(cssWidth * dpr));
+        height = Math.max(baseElement.height, Math.round(cssHeight * dpr));
       } else {
-        const dpr = window.devicePixelRatio || 1;
         width = Math.round(cssWidth * dpr);
         height = Math.round(cssHeight * dpr);
-        drawCanvas._imgDpr = dpr;
       }
+      drawCanvas._imgDpr = dpr;
       drawCanvas.width = Math.max(1, width);
       drawCanvas.height = Math.max(1, height);
       drawCanvas.style.width = `${cssWidth}px`;
