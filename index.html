@@ -21,6 +21,7 @@
         --text: #1a1a1a;
         --sub: #8a8a92;
         --accent: #111111;
+        --staff-line-color: #dddddd;
       }
 
       * {
@@ -294,6 +295,7 @@
         font-size: 15px;
         font-weight: 700;
         cursor: pointer;
+        touch-action: manipulation;
         transition: opacity 0.12s ease, transform 0.12s ease;
       }
 
@@ -934,6 +936,7 @@
         border-top-left-radius: 18px;
         border-top-right-radius: 18px;
         padding: 14px;
+        padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
         transform: translateY(100%);
         transition: transform 0.22s ease;
         z-index: 50;
@@ -1026,7 +1029,24 @@
         color: var(--sub);
         font-size: 14px;
         font-weight: 700;
+        cursor: pointer;
+        border-radius: 6px;
+        padding: 2px 4px;
       }
+      .page-label:hover { background: rgba(0,0,0,0.05); }
+
+      .page-jump-input {
+        width: 72px;
+        padding: 4px 6px;
+        border: 1.5px solid var(--accent);
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        text-align: center;
+        color: var(--text);
+        outline: none;
+      }
+      .page-jump-input[hidden] { display: none !important; }
 
       .preview-pager {
         justify-content: center;
@@ -1231,6 +1251,103 @@
         overflow: hidden;
       }
 
+      /* ── 注釈ストリップ (常時表示・左固定) ── */
+      .annotation-strip {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 52px;
+        z-index: 25;
+        pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 6px 4px;
+        gap: 0;
+        background: rgba(255,255,255,0.97);
+        border-right: 1px solid var(--line);
+        overflow: visible;
+      }
+      /* サイドバートグルボタン（ストリップ内） */
+      .annotation-strip .sidebar-toggle-btn {
+        position: static;
+        width: 44px;
+        padding: 6px;
+        justify-content: center;
+        margin-bottom: 4px;
+        flex-shrink: 0;
+        transition: background 0.1s;
+      }
+      /* 注釈バーをストリップ内で縦並びに */
+      .annotation-strip #annotationBar {
+        position: static;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 1px;
+        padding: 0;
+        border: none;
+        background: none;
+        width: 100%;
+      }
+      .annotation-strip .ab-btn {
+        width: 44px;
+        padding: 4px 0;
+        justify-content: center;
+      }
+      /* セパレーターを縦→横に */
+      .annotation-strip .ab-cs-sep {
+        width: 36px;
+        height: 1px;
+        margin: 3px 0;
+      }
+      /* カラー/サイズパネル：ストリップ右側にポップアップ */
+      .annotation-strip #abColorSizePanel {
+        position: absolute;
+        left: calc(100% + 6px);
+        top: 60px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        max-width: 150px;
+        gap: 5px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        z-index: 60;
+        align-items: center;
+        pointer-events: none;
+      }
+      .annotation-strip #abColorSizePanel .ab-color,
+      .annotation-strip #abColorSizePanel .ab-size,
+      .annotation-strip #abColorSizePanel .ab-stamp-size-row,
+      .annotation-strip #abColorSizePanel .ab-stamp-size-row * {
+        pointer-events: auto;
+      }
+      /* ビート表示：右上に常時表示 */
+      .beat-overlay {
+        position: absolute;
+        top: 8px;
+        right: 14px;
+        z-index: 36;
+        pointer-events: none;
+      }
+      .beat-overlay .beat-indicator {
+        min-width: auto;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 4px 8px;
+        border-radius: 8px;
+        white-space: nowrap;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.92);
+        backdrop-filter: blur(8px);
+        display: block;
+      }
+
       .left-rail,
       .right-rail {
         position: absolute;
@@ -1241,11 +1358,32 @@
       }
 
       .left-rail {
-        left: 8px;
-        width: 230px;
+        left: 52px;
+        width: 270px;
         display: flex;
         flex-direction: column;
+        transform: translateX(-322px);
+        transition: transform 0.2s ease;
+        border-right: 1px solid var(--line);
       }
+
+      .reader.sidebar-open .left-rail {
+        transform: translateX(0);
+        pointer-events: auto;
+      }
+
+      /* サイドバートグルボタン（単体配置時の基本スタイル） */
+      .sidebar-toggle-btn {
+        background: rgba(255,255,255,0.92);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 9px;
+        cursor: pointer;
+        color: var(--sub);
+        display: flex;
+        align-items: center;
+      }
+      .sidebar-toggle-btn:hover { background: #fff; }
 
       .mobile-tools-toggle {
         display: none;
@@ -1254,12 +1392,14 @@
       .mobile-tools-panel {
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: flex-start;
         flex: 1;
-        gap: 8px;
+        gap: 6px;
         min-height: 0;
         overflow-y: auto;
         scrollbar-width: none;
+        background: rgba(255,255,255,0.97);
+        padding: 8px;
       }
 
       .mobile-tools-panel::-webkit-scrollbar {
@@ -1333,6 +1473,9 @@
         padding: 6px 10px;
         font-size: 13px;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .tool-button.active {
@@ -1345,6 +1488,14 @@
         min-width: 38px;
         padding: 6px 9px;
         font-weight: 700;
+      }
+
+      .layout-buttons .tool-button {
+        padding: 4px 6px;
+      }
+      .layout-buttons .tool-button svg {
+        width: 32px;
+        height: 32px;
       }
 
       .feature-block {
@@ -1376,8 +1527,13 @@
         position: relative;
         height: 100%;
         min-height: 0;
-        padding-left: 250px;
+        padding-left: 58px;
         padding-right: 12px;
+        transition: padding-left 0.2s ease;
+      }
+
+      .reader:not(.focus-mode).sidebar-open .reader-main {
+        padding-left: 292px;
       }
 
       .focus-exit {
@@ -1400,6 +1556,11 @@
         backdrop-filter: blur(12px);
       }
 
+      #focusModeExitButton svg {
+        width: 32px;
+        height: 32px;
+      }
+
       .focus-exit .beat-indicator {
         display: none;
       }
@@ -1420,7 +1581,6 @@
         backdrop-filter: blur(12px);
       }
 
-      .reader.focus-mode .left-rail,
       .reader.focus-mode .right-rail,
       .reader.focus-mode .floating-panel {
         display: none !important;
@@ -1430,12 +1590,21 @@
         display: none;
       }
 
+
+      .reader.focus-mode .focus-exit {
+        top: 54px;
+      }
+
       .reader.focus-mode {
         padding-top: 0;
       }
 
       .reader.focus-mode .reader-body {
         padding-top: 0;
+      }
+
+      .reader.focus-mode .annotation-strip {
+        display: none;
       }
 
       .reader.focus-mode .reader-main {
@@ -1646,12 +1815,13 @@
         margin-top: 2px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 8px;
       }
 
       .metro-adjust {
         width: 42px;
         height: 42px;
+        flex-shrink: 0;
         border-radius: 50%;
         border: 2px solid rgba(244, 247, 247, 0.86);
         background: transparent;
@@ -1662,9 +1832,10 @@
       }
 
       .metro-bpm {
-        min-width: 86px;
+        flex: 1;
+        min-width: 0;
         text-align: center;
-        font-size: 58px;
+        font-size: 52px;
         line-height: 1;
         font-weight: 400;
       }
@@ -1823,21 +1994,16 @@
         display: none;
       }
 
-      /* 注釈バー: デスクトップでも表示 */
+      /* 注釈バー: サイドバー内に縦表示 */
       #annotationBar {
         display: flex;
         align-items: center;
-        gap: 4px;
-        position: absolute;
-        top: 8px;
-        left: 246px;
-        right: 8px;
-        z-index: 32;
-        background: rgba(255, 255, 255, 0.96);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 5px 10px;
+        flex-wrap: nowrap;
+        flex-direction: column;
+        gap: 1px;
+        padding: 0;
         pointer-events: auto;
+        width: 100%;
       }
 
       /* 注釈バー内のボタン・カラー・サイズ共通スタイル */
@@ -1854,6 +2020,43 @@
         flex-shrink: 0;
       }
       .ab-btn.active { background: rgba(0, 0, 0, 0.07); }
+      .ab-bowslur-panel {
+        position: absolute;
+        left: 54px;
+        top: 0;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        z-index: 100;
+        min-width: 96px;
+        pointer-events: none;
+      }
+      .ab-bowslur-panel[hidden] { display: none; }
+      .ab-bowslur-opt {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border: none;
+        background: transparent;
+        border-radius: 7px;
+        cursor: pointer;
+        color: var(--text);
+        font-size: 13px;
+        white-space: nowrap;
+        width: 100%;
+        text-align: left;
+        pointer-events: auto;
+      }
+      .ab-bowslur-opt:hover { background: rgba(0,0,0,0.05); }
+      .ab-bowslur-opt.active { background: rgba(0,0,0,0.07); font-weight: 600; }
+      .ab-finger-opt { font-size: 18px; font-weight: 700; justify-content: center; }
+      .ab-acc-panel[hidden], .ab-finger-panel[hidden] { display: none; }
       .ab-cs-panel {
         display: none;
         align-items: center;
@@ -1904,6 +2107,33 @@
       .ab-size[data-size="L"]::after { width: 14px; height: 14px; }
       .ab-cs-panel.size-only .ab-color,
       .ab-cs-panel.size-only .ab-cs-sep { display: none; }
+      .ab-cs-panel.color-only .ab-size,
+      .ab-cs-panel.color-only .ab-cs-sep { display: none; }
+      .ab-stamp-size-row {
+        display: none;
+        flex-basis: 100%;
+        align-items: center;
+        gap: 6px;
+        padding-top: 5px;
+        margin-top: 2px;
+        border-top: 1px solid var(--line);
+      }
+      .ab-cs-panel.has-stamp-size .ab-stamp-size-row { display: flex; }
+      #abStampSizeSlider {
+        flex: 1;
+        min-width: 0;
+        height: 3px;
+        accent-color: #1e88e5;
+        cursor: pointer;
+      }
+      #abStampSizePct {
+        font-size: 11px;
+        color: var(--text-dim, #888);
+        min-width: 30px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+      }
       .ab-cs-panel.size-only .ab-size::after {
         width: var(--dot-sz); height: var(--dot-sz);
       }
@@ -1920,14 +2150,110 @@
         white-space: nowrap; flex-shrink: 0;
       }
 
+      /* ツールチップ */
+      .ab-tooltip {
+        position: fixed;
+        z-index: 9999;
+        background: rgba(28,28,30,0.93);
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        line-height: 1.5;
+        pointer-events: none;
+        white-space: nowrap;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+        opacity: 0;
+        transform: translateY(-50%);
+        transition: opacity 0.12s;
+      }
+      .ab-tooltip.visible { opacity: 1; }
+      .ab-tooltip-title { font-weight: 600; font-size: 13px; }
+      .ab-tooltip-desc { margin-top: 2px; color: rgba(255,255,255,0.65); font-size: 11px; }
+      .ab-tooltip-shortcuts { margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
+      .ab-tooltip-row { display: flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.8); font-size: 11px; }
+      .ab-tooltip-key {
+        background: rgba(255,255,255,0.15);
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-family: monospace;
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+
+      /* しおり (左パネル内) */
+      .bookmark-controls {
+        display: flex; flex-direction: column; gap: 6px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        margin-top: 4px;
+      }
+      .bookmark-controls-header {
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .bookmark-controls-label {
+        font-size: 12px; color: var(--sub); font-weight: 600;
+        user-select: none;
+      }
+      .bookmark-add-btn {
+        background: none; border: 1px solid var(--line);
+        border-radius: 6px; padding: 2px 8px;
+        font-size: 14px; cursor: pointer; color: #555; line-height: 1.4;
+      }
+      .bookmark-add-btn:hover { background: rgba(0,0,0,0.05); }
+      .bookmark-add-btn[hidden] { display: none !important; }
+      .bookmark-add-form {
+        display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+      }
+      .bookmark-add-form[hidden] { display: none !important; }
+      .bookmark-form-label { font-size: 11px; color: var(--sub); }
+      .bookmark-page-input {
+        width: 52px; padding: 4px 6px;
+        border: 1px solid #ccc; border-radius: 6px;
+        font-size: 13px; text-align: center;
+      }
+      .bookmark-save-btn {
+        padding: 4px 8px; background: #2563eb; color: #fff;
+        border: none; border-radius: 6px; font-size: 11px; cursor: pointer;
+      }
+      .bookmark-save-btn:hover { background: #1d4ed8; }
+      .bookmark-cancel-btn {
+        padding: 4px 6px; background: none;
+        border: 1px solid #ccc; border-radius: 6px;
+        font-size: 11px; cursor: pointer; color: #555;
+      }
+      .bookmark-slots {
+        display: flex; gap: 4px; flex-wrap: wrap;
+      }
+      .bookmark-slot {
+        flex: 1; min-width: 48px;
+        padding: 5px 4px; font-size: 11px;
+        background: rgba(0,0,0,0.04); border: none;
+        border-radius: 6px; color: #888; cursor: default;
+        position: relative; white-space: nowrap; text-align: center;
+      }
+      .bookmark-slot.filled {
+        background: rgba(234,179,8,0.18); color: #78350f;
+        font-weight: 600; cursor: pointer;
+      }
+      .bookmark-slot.filled:hover { background: rgba(234,179,8,0.30); }
+      .bm-del {
+        display: none; position: absolute;
+        top: -5px; right: -5px;
+        width: 14px; height: 14px;
+        background: #c00; color: #fff;
+        border-radius: 50%; font-size: 9px;
+        align-items: center; justify-content: center;
+        cursor: pointer; border: none; padding: 0; line-height: 1;
+      }
+      .bookmark-slot.filled:hover .bm-del { display: flex; }
+
       /* デスクトップ: left-rail の注釈ツールを非表示 */
       .left-rail .annotation-tools-section { display: none; }
 
-      /* デスクトップ: メトロノームトグルボタンは不要（パネルは常時表示） */
-      #metronomeWindowToggle { display: none; }
-
-      /* デスクトップ: left-rail 内のメトロノームパネルはフローティング解除 */
-      .left-rail #metronomePanel {
+      /* デスクトップ: left-rail 内のメトロノーム・チューナーパネルはフローティング解除 */
+      .left-rail #metronomePanel,
+      .left-rail #tunerPanel {
         position: static;
         width: 100%;
         max-height: none;
@@ -1937,6 +2263,47 @@
         top: auto;
         bottom: auto;
         pointer-events: auto;
+      }
+
+      /* 開示セクション */
+      .tool-section {
+        border-top: 1px solid var(--line);
+        padding-top: 2px;
+        margin-top: 2px;
+      }
+      #displaySectionBody {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      #displaySectionBody .zoom-controls {
+        margin-top: 10px;
+      }
+      #displaySectionBody .bookmark-controls {
+        margin-top: 10px;
+      }
+      .tool-section-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 6px 4px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--sub);
+        cursor: pointer;
+        text-align: left;
+        border-radius: 6px;
+        user-select: none;
+      }
+      .tool-section-toggle:hover { background: rgba(0,0,0,0.04); }
+      .tool-section-arrow {
+        font-size: 9px;
+        width: 10px;
+        flex-shrink: 0;
+        display: inline-block;
       }
 
       .page-layer {
@@ -1992,7 +2359,7 @@
       @media (max-width: 820px) {
         /* left-rail: 左端に固定幅、z-index を floating-panel より高く */
         .left-rail {
-          width: 230px;
+          width: 270px;
           right: auto;        /* full-width を解除 */
           bottom: auto;       /* 高さはコンテンツ分だけ */
           z-index: 40;        /* floating-panel(30)より上 */
@@ -2040,10 +2407,10 @@
 
         /* floating-panel: ツールパネルの右隣に配置 */
         .floating-panel {
-          left: 238px;
+          left: 278px;
           top: 8px;
           bottom: auto;
-          width: min(260px, calc(100vw - 254px));
+          width: min(260px, calc(100vw - 294px));
           max-height: calc(50dvh - 16px);
         }
 
@@ -2121,7 +2488,6 @@
         }
 
         .mobile-tools-panel .tool-group > span,
-        .mobile-tools-panel .layout-controls > span,
         .mobile-tools-panel .zoom-controls > span {
           font-size: 11px;
           color: var(--sub);
@@ -2157,21 +2523,20 @@
           display: none;
         }
 
-        /* 注釈バー: iPad で常時表示 */
-        #annotationBar {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          position: absolute;
-          top: 8px;
-          left: 244px;
-          right: 8px;
-          z-index: 32;
-          background: rgba(255, 255, 255, 0.96);
-          border: 1px solid var(--line);
-          border-radius: 12px;
-          padding: 5px 10px;
-          pointer-events: auto;
+        /* 注釈ストリップ: モバイルでは幅を40pxに縮小 */
+        .annotation-strip {
+          width: 40px;
+        }
+        .annotation-strip .sidebar-toggle-btn {
+          width: 36px;
+          padding: 5px;
+        }
+        .annotation-strip .ab-btn {
+          width: 36px;
+        }
+        /* モバイル: PDFをストリップ分だけ右にオフセット */
+        .reader-main {
+          padding-left: 42px;
         }
 
         .ab-btn {
@@ -2269,7 +2634,10 @@
         /* 消しゴム選択時: カラードットとセパレーターを隠す */
         .ab-cs-panel.size-only .ab-color,
         .ab-cs-panel.size-only .ab-cs-sep { display: none; }
-        /* 消しゴムの丸はJSでセットしたCSS変数で実際のサイズに比例表示 */
+        .ab-cs-panel.color-only .ab-size,
+        .ab-cs-panel.color-only .ab-cs-sep { display: none; }
+        .ab-cs-panel.has-stamp-size .ab-stamp-size-row { display: flex; }
+  /* 消しゴムの丸はJSでセットしたCSS変数で実際のサイズに比例表示 */
         .ab-cs-panel.size-only .ab-size::after {
           width: var(--dot-sz);
           height: var(--dot-sz);
@@ -2286,6 +2654,9 @@
           transform: translate(-50%, -50%);
           z-index: 9999;
         }
+
+        /* ボーイング/スラーパネル: タブレットでは細いストリップに合わせて左位置調整 */
+        .ab-bowslur-panel { left: 42px; }
 
         /* 注釈ツールはパネルから非表示（バーに移動） */
         .mobile-tools-panel .annotation-tools-section {
@@ -2415,9 +2786,8 @@
       </div>
 
       <div class="focus-exit">
-        <button id="focusModeExitButton" class="close-button" type="button">通常表示</button>
+        <button id="focusModeExitButton" class="close-button" type="button" aria-label="通常表示"><svg viewBox="0 0 400 400" width="22" height="22" fill="none" aria-hidden="true"><path d="M280 90C285.523 90 290 94.4772 290 100V300C290 305.523 285.523 310 280 310H120C114.477 310 110 305.523 110 300V100C110 94.4772 114.477 90 120 90H280ZM130 290H270V110H130V290Z" fill="currentColor"/><path d="M240 350L240 290C240 273.431 253.431 260 270 260L330 260C346.569 260 360 273.431 360 290C360 306.569 346.569 320 330 320L300 320L300 350C300 366.569 286.569 380 270 380C253.431 380 240 366.569 240 350Z" fill="white"/><path d="M160 50L160 110C160 126.569 146.569 140 130 140L70 140C53.4315 140 40 126.569 40 110C40 93.4315 53.4315 80 70 80L100 80L100 50C100 33.4315 113.431 20 130 20C146.569 20 160 33.4315 160 50Z" fill="white"/><path d="M140 50L140 110C140 115.523 135.523 120 130 120L70 120C64.4771 120 60 115.523 60 110C60 104.477 64.4771 100 70 100L120 100L120 50C120 44.4772 124.477 40 130 40C135.523 40 140 44.4771 140 50Z" fill="currentColor"/><path d="M260 350L260 290C260 284.477 264.477 280 270 280L330 280C335.523 280 340 284.477 340 290C340 295.523 335.523 300 330 300L280 300L280 350C280 355.523 275.523 360 270 360C264.477 360 260 355.523 260 350Z" fill="currentColor"/><path d="M253 262C255.761 262 258 259.761 258 257C258 254.239 255.761 252 253 252L147 252C144.239 252 142 254.239 142 257C142 259.761 144.239 262 147 262L253 262Z" fill="currentColor"/><path d="M253 232C255.761 232 258 229.761 258 227C258 224.239 255.761 222 253 222L147 222C144.239 222 142 224.239 142 227C142 229.761 144.239 232 147 232L253 232Z" fill="currentColor"/><path d="M253 148C255.761 148 258 145.761 258 143C258 140.239 255.761 138 253 138L147 138C144.239 138 142 140.239 142 143C142 145.761 144.239 148 147 148L253 148Z" fill="currentColor"/><path d="M253 178C255.761 178 258 175.761 258 173C258 170.239 255.761 168 253 168L147 168C144.239 168 142 170.239 142 173C142 175.761 144.239 178 147 178L253 178Z" fill="currentColor"/></svg></button>
         <button id="focusModeCloseButton" class="close-button" type="button">閉じる</button>
-        <span id="focusMetronomeBeatIndicator" class="beat-indicator">●○○○</span>
       </div>
 
       <div class="focus-nav">
@@ -2426,14 +2796,156 @@
       </div>
 
       <div class="reader-body">
+        <div class="annotation-strip">
+          <button id="sidebarToggle" class="sidebar-toggle-btn" type="button" aria-label="サイドバー" title="サイドバー (⌘B)">
+            <svg viewBox="0 0 18 14" width="16" height="12" fill="currentColor" aria-hidden="true">
+              <rect y="0" width="18" height="2" rx="1"/>
+              <rect y="6" width="18" height="2" rx="1"/>
+              <rect y="12" width="18" height="2" rx="1"/>
+            </svg>
+          </button>
+          <div id="annotationBar" class="annotation-bar">
+            <!-- ペンボタン (Figmaアイコン: 色付き部分が選択色に変わる) -->
+            <button id="abPenBtn" class="ab-btn active" type="button" aria-label="ペン">
+              <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path class="ab-pen-color" d="M49.6985 351.026L131.016 302.236L85.0539 256.274L36.2635 337.591L49.6985 351.026Z" fill="#b0b0b0"/>
+                <path class="ab-pen-color" d="M205.262 37.0711L212.333 30L357.29 174.957L350.219 182.028L290.115 206.777L180.513 97.1752L205.262 37.0711Z" fill="#b0b0b0"/>
+                <path class="ab-pen-color" d="M364.361 340.323C372.645 340.323 379.361 347.038 379.361 355.323C379.361 363.607 372.645 370.323 364.361 370.323L134.361 370.323C126.077 370.323 119.361 363.607 119.361 355.323C119.361 347.038 126.077 340.323 134.361 340.323L364.361 340.323Z" fill="#b0b0b0" fill-opacity="0.45"/>
+                <path d="M138.087 295.165C140.264 297.342 141.317 300.401 140.941 303.458C140.565 306.514 138.801 309.227 136.16 310.811L54.843 359.602C50.9083 361.962 45.872 361.342 42.6274 358.098L29.1924 344.663C25.9478 341.418 25.3279 336.382 27.6884 332.447L76.4788 251.13C78.0631 248.489 80.776 246.725 83.8323 246.349C86.8885 245.973 89.9475 247.026 92.1249 249.203L138.087 295.165ZM48.8554 336.041L51.2488 338.435L114.888 300.251L87.0391 272.402L48.8554 336.041Z" fill="black"/>
+                <path d="M219.404 37.0711L213.747 42.7286L192.298 94.8177L292.472 194.992L344.561 173.543L350.219 167.886L364.361 182.028L357.29 189.099C356.356 190.033 355.247 190.772 354.026 191.274L295.773 215.261L268.902 242.132C268.323 242.71 267.676 243.215 266.975 243.636L143.231 317.882C139.297 320.243 134.26 319.623 131.016 316.378L70.9117 256.274C67.6671 253.03 67.0471 247.993 69.4077 244.059L143.654 120.315C144.075 119.614 144.58 118.966 145.158 118.388L172.029 91.5169L196.016 33.2635C196.518 32.0428 197.257 30.9335 198.191 30L205.262 22.9289L219.404 37.0711ZM160.17 131.66L90.5746 247.653L139.637 296.715L255.63 227.12L275.973 206.777L180.513 111.317L160.17 131.66Z" fill="black"/>
+              </svg>
+            </button>
+            <!-- マーカーボタン -->
+            <button id="abMarkerBtn" class="ab-btn" type="button" aria-label="マーカー">
+              <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path class="ab-marker-color" d="M123.393 337.767L141.071 320.09L84.5023 263.521L24.3982 323.625L38.5403 337.767L123.393 337.767Z" fill="#b0b0b0"/>
+                <path class="ab-marker-color" d="M363.86 196.296L208.296 40.7324L165.869 83.1588L158.798 107.2L297.391 245.793L321.433 238.722L363.86 196.296Z" fill="#b0b0b0"/>
+                <path class="ab-marker-color" d="M193.183 328.349L166.183 364.349L386.183 364.349L386.183 328.349L193.183 328.349Z" fill="#b0b0b0" fill-opacity="0.45"/>
+                <path d="M249.618 285.352C255.107 284.742 260.051 288.698 260.661 294.187C261.271 299.676 257.316 304.62 251.827 305.23L191.673 311.913L162.334 341.253C158.429 345.158 152.097 345.158 148.192 341.253L63.3391 256.4C59.4339 252.495 59.4339 246.163 63.3391 242.258L92.6786 212.918L99.3622 152.765C99.9721 147.276 104.916 143.321 110.405 143.931C115.894 144.541 119.85 149.485 119.24 154.974L112.169 218.613C111.918 220.87 110.907 222.975 109.301 224.58L84.5523 249.329L155.263 320.04L180.012 295.291C181.617 293.685 183.722 292.674 185.979 292.423L249.618 285.352Z" fill="black"/>
+                <path d="M215.367 47.8035L174.61 88.5609L168.285 107.535C166.538 112.774 160.875 115.605 155.636 113.859C150.397 112.112 147.566 106.449 149.312 101.209L156.383 79.9962C156.874 78.5236 157.701 77.1854 158.799 76.0878L201.225 33.6613L215.367 47.8035ZM370.931 203.367L328.504 245.793C327.407 246.891 326.068 247.718 324.596 248.209L303.383 255.28C298.143 257.026 292.48 254.195 290.733 248.956C288.987 243.717 291.818 238.053 297.057 236.307L316.031 229.982L356.788 189.225L370.931 203.367Z" fill="black"/>
+                <path d="M77.4813 256.4C81.3865 252.495 87.7182 252.495 91.6234 256.4C95.5287 260.305 95.5287 266.637 91.6234 270.542L38.5904 323.575L42.9001 327.885L119.293 327.725L134.05 312.969C137.955 309.063 144.287 309.063 148.192 312.969C152.097 316.874 152.097 323.205 148.192 327.111L130.514 344.788C128.644 346.659 126.109 347.712 123.464 347.718L38.7879 347.894C36.1286 347.9 33.5766 346.846 31.6961 344.965L17.3772 330.646C13.472 326.741 13.472 320.409 17.3772 316.504L77.4813 256.4Z" fill="black"/>
+                <path d="M243.651 288.22L286.078 245.793L158.799 118.514L116.372 160.941C112.467 164.846 106.135 164.846 102.23 160.941C98.3248 157.035 98.3248 150.704 102.23 146.798L151.728 97.3009C155.633 93.3957 161.964 93.3957 165.87 97.3009L307.291 238.722C311.196 242.628 311.196 248.959 307.291 252.864L257.794 302.362C253.888 306.267 247.557 306.267 243.651 302.362C239.746 298.457 239.746 292.125 243.651 288.22Z" fill="black"/>
+                <path d="M158.799 104.372L134.05 129.121L275.471 270.542L300.22 245.793L158.799 104.372Z" fill="black"/>
+                <path d="M307.291 238.722C311.196 242.628 311.196 248.959 307.291 252.864L282.542 277.613C278.637 281.518 272.305 281.518 268.4 277.613L126.979 136.192C123.074 132.287 123.074 125.955 126.979 122.05L151.728 97.3009C153.603 95.4256 156.146 94.3717 158.799 94.3717C161.451 94.3717 163.994 95.4256 165.87 97.3009L307.291 238.722ZM148.192 129.121L275.471 256.4L286.078 245.793L158.799 118.514L148.192 129.121Z" fill="black"/>
+              </svg>
+            </button>
+            <!-- 消しゴムボタン -->
+            <button id="abEraserBtn" class="ab-btn" type="button" aria-label="消しゴム">
+              <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_27_159)">
+                  <path class="ab-eraser-color" data-active-color="#58B9FF" d="M346.198 140.066C357.914 151.782 357.914 170.777 346.198 182.492L296.701 231.99L183.563 118.853L233.061 69.3553C244.777 57.6396 263.772 57.6396 275.487 69.3553L346.198 140.066Z" fill="#ffffff"/>
+                  <path d="M337.852 176.697C346.761 167.787 346.554 154.564 339.127 147.137L268.416 76.4264C260.989 68.9991 247.766 68.7925 238.857 77.7018L193.455 123.103L292.45 222.098L337.852 176.697ZM292.45 236.24L179.313 123.103L231.786 70.6307C244.206 58.2107 263.772 57.6396 275.487 69.3553L346.198 140.066C357.914 151.782 357.343 171.348 344.923 183.768L292.45 236.24Z" fill="black"/>
+                  <path class="ab-eraser-color" data-active-color="#FFF6F2" d="M289.63 239.061L182.793 345.898H127.766L63.3553 281.487C51.6396 269.772 51.6396 250.777 63.3553 239.061L176.492 125.924L289.63 239.061Z" fill="#ffffff"/>
+                  <path d="M63.9693 238.447L180.381 122.036L293.518 235.173L183.589 345.101L127.766 345.898L63.3553 281.487L70.6311 274.212L132.112 335.693L179.532 335.016L279.171 235.377L180.176 136.382L71.0404 245.518C63.0038 253.555 62.8206 266.401 70.6311 274.212L63.3553 281.487C51.6396 269.772 51.9145 250.502 63.9693 238.447Z" fill="black"/>
+                  <path d="M353.269 132.995C368.89 148.616 368.89 173.943 353.269 189.563L296.701 246.132L169.421 118.853L225.99 62.2843C241.611 46.6633 266.937 46.6633 282.558 62.2843L353.269 132.995ZM275.487 69.3553C263.772 57.6396 244.777 57.6396 233.061 69.3553L183.563 118.853L296.701 231.99L346.198 182.492C357.914 170.777 357.914 151.782 346.198 140.066L275.487 69.3553Z" fill="black"/>
+                  <path d="M285.487 340.127C288.249 340.127 290.487 342.365 290.487 345.126C290.487 347.888 288.249 350.126 285.487 350.126H119.924C117.163 350.126 114.924 347.888 114.924 345.126C114.924 342.365 117.163 340.127 119.924 340.127H285.487Z" fill="black"/>
+                  <path d="M348.484 330.122C354.007 330.122 358.484 334.599 358.484 340.122C358.484 345.645 354.007 350.122 348.484 350.122L124 350.122C118.477 350.122 114 345.645 114 340.122C114 334.599 118.477 330.122 124 330.122L348.484 330.122Z" fill="black"/>
+                  <path d="M225.99 62.2843C241.367 46.9073 266.149 46.6669 281.82 61.5634L282.558 62.2843L275.487 69.3554C263.772 57.6396 244.777 57.6396 233.061 69.3554L183.563 118.853L296.701 231.99L346.198 182.492C357.914 170.777 357.914 151.782 346.198 140.066L275.487 69.3554L282.558 62.2843L353.269 132.995C368.89 148.616 368.89 173.943 353.269 189.564L296.701 246.132L169.421 118.853L225.99 62.2843Z" fill="black"/>
+                  <path d="M342.663 178.957C352.426 169.194 352.426 153.365 342.663 143.602L271.952 72.8908C262.189 63.1277 246.36 63.1277 236.596 72.8908L190.635 118.853L296.701 224.919L342.663 178.957ZM296.701 231.99L183.563 118.853L233.061 69.3554C244.594 57.8227 263.18 57.6424 274.933 68.8146L275.487 69.3554L346.198 140.066L346.739 140.62C357.911 152.374 357.731 170.96 346.198 182.492L296.701 231.99Z" fill="black"/>
+                  <path d="M295.401 233.289L183.975 344.715L127.766 345.898L59.7666 277.899L59.384 277.346C51.5016 265.678 52.7231 249.693 63.0515 239.365L182.264 120.152L295.401 233.289ZM66.183 243.314C57.9148 251.966 57.0576 265.102 63.6198 274.681L129.793 340.854L181.861 339.759L288.33 233.289L182.264 127.223L66.587 242.9L66.183 243.314Z" fill="black"/>
+                  <path d="M353.269 132.995C368.89 148.616 368.89 173.943 353.269 189.564L194.17 348.663H180.028L346.198 182.492C357.914 170.777 357.914 151.782 346.198 140.066L275.487 69.3554C263.772 57.6396 244.777 57.6396 233.061 69.3554L63.3554 239.061C51.6396 250.777 51.6396 269.772 63.3554 281.487L130.53 348.663H116.388L56.2843 288.558L55.5634 287.82C40.6669 272.149 40.9073 247.367 56.2843 231.99L225.99 62.2843C241.611 46.6633 266.937 46.6633 282.558 62.2843L353.269 132.995Z" fill="black"/>
+                </g>
+                <defs>
+                  <clipPath id="clip0_27_159">
+                    <rect width="400" height="400" fill="white"/>
+                  </clipPath>
+                </defs>
+              </svg>
+            </button>
+            <!-- テキストボタン -->
+            <button id="abTextBtn" class="ab-btn" type="button" aria-label="テキスト">
+              <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path class="ab-text-color" data-active-color="#BDE7A7" d="M345 301.25C345 319.89 330.076 335 311.667 335H78.3333L77.4729 334.989C59.4611 334.527 45 319.598 45 301.25V98.75C45 80.1104 59.9238 65 78.3333 65H311.667C330.076 65 345 80.1104 345 98.75V301.25Z" fill="#ffffff"/>
+                <path d="M315 315V335H75V315H315ZM325 305V95C325 89.4772 320.523 85 315 85H75C69.4772 85 65 89.4772 65 95V305C65 310.523 69.4771 315 75 315V335C58.6904 335 45.4205 321.985 45.0098 305.774L45 305V95C45 78.4315 58.4315 65 75 65H315L315.774 65.0098C331.985 65.4205 345 78.6904 345 95V305C345 321.31 331.985 334.579 315.774 334.99L315 335V315C320.523 315 325 310.523 325 305Z" fill="black"/>
+                <path d="M257.5 150V137.5H207.5V267.5H220C226.904 267.5 232.5 273.096 232.5 280C232.5 286.904 226.904 292.5 220 292.5H170C163.096 292.5 157.5 286.904 157.5 280C157.5 273.096 163.096 267.5 170 267.5H182.5V137.5H132.5V150C132.5 156.904 126.904 162.5 120 162.5C113.096 162.5 107.5 156.904 107.5 150V125C107.5 118.096 113.096 112.5 120 112.5H270C276.904 112.5 282.5 118.096 282.5 125V150C282.5 156.904 276.904 162.5 270 162.5C263.096 162.5 257.5 156.904 257.5 150Z" fill="black"/>
+              </svg>
+            </button>
+
+            <!-- カラー/サイズパネル (ペン・マーカー選択時のみ表示) -->
+            <div id="abColorSizePanel" class="ab-cs-panel">
+              <button class="ab-color" data-color="#e53935" style="background:#e53935" type="button" aria-label="赤"></button>
+              <button class="ab-color" data-color="#1e88e5" style="background:#1e88e5" type="button" aria-label="青"></button>
+              <button class="ab-color" data-color="#212121" style="background:#212121" type="button" aria-label="黒"></button>
+              <button class="ab-color" data-color="#ffd600" style="background:#ffd600" type="button" aria-label="黄"></button>
+              <button id="abColorCustomBtn" class="ab-color ab-color-custom" type="button" aria-label="カスタム色">+</button>
+              <input type="color" id="abColorInput" value="#d32f2f" tabindex="-1" aria-hidden="true"/>
+              <div class="ab-cs-sep"></div>
+              <button class="ab-size" data-size="S" type="button" aria-label="細"></button>
+              <button class="ab-size" data-size="M" type="button" aria-label="中"></button>
+              <button class="ab-size" data-size="L" type="button" aria-label="太"></button>
+              <div class="ab-stamp-size-row">
+                <input type="range" id="abStampSizeSlider" min="70" max="200" value="100" step="5" aria-label="スタンプサイズ">
+                <span id="abStampSizePct">100%</span>
+              </div>
+            </div>
+
+            <div class="ab-cs-sep"></div>
+            <!-- スタンプ系ボタン -->
+            <div class="ab-bowslur-group" style="position:relative;">
+              <button id="abFingerBtn" class="ab-btn" type="button" aria-label="指番号">
+                <img src="./assets/finger.svg" width="26" height="26" aria-hidden="true" style="display:block;"/>
+              </button>
+              <div id="abFingerPanel" class="ab-bowslur-panel" hidden>
+                <button class="ab-bowslur-opt ab-finger-opt" data-finger="0" type="button">0</button>
+                <button class="ab-bowslur-opt ab-finger-opt" data-finger="1" type="button">1</button>
+                <button class="ab-bowslur-opt ab-finger-opt" data-finger="2" type="button">2</button>
+                <button class="ab-bowslur-opt ab-finger-opt" data-finger="3" type="button">3</button>
+                <button class="ab-bowslur-opt ab-finger-opt" data-finger="4" type="button">4</button>
+                <button class="ab-bowslur-opt ab-finger-opt" data-finger="5" type="button">5</button>
+              </div>
+            </div>
+            <div class="ab-bowslur-group" style="position:relative;">
+              <button id="abAccidentalBtn" class="ab-btn" type="button" aria-label="臨時記号">
+              <svg viewBox="0 0 400 400" width="32" height="32" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path d="M325 335C327.761 335 330 337.239 330 340C330 342.761 327.761 345 325 345H75C72.2386 345 70 342.761 70 340C70 337.239 72.2386 335 75 335H325ZM325 265C327.761 265 330 267.239 330 270C330 272.761 327.761 275 325 275H75C72.2386 275 70 272.761 70 270C70 267.239 72.2386 265 75 265H325ZM325 195C327.761 195 330 197.239 330 200C330 202.761 327.761 205 325 205H75C72.2386 205 70 202.761 70 200C70 197.239 72.2386 195 75 195H325ZM325 125C327.761 125 330 127.239 330 130C330 132.761 327.761 135 325 135H75C72.2386 135 70 132.761 70 130C70 127.239 72.2386 125 75 125H325ZM325 55C327.761 55 330 57.2386 330 60C330 62.7614 327.761 65 325 65H75C72.2386 65 70 62.7614 70 60C70 57.2386 72.2386 55 75 55H325Z" fill="var(--staff-line-color,#dddddd)"/>
+                <path d="M264.25 176.5V140.75L252.5 143.75V118.75L264.25 115.5V66.5H272V113.5L288.75 109.5V60.75H296.5V107.5L308.75 104.75V129.5L296.5 133V168.75L308.75 165.75V191.5L296.5 194.5V241.5H288.75V196.5L272 201V249.75H264.25V202.75L252.5 205.75V180L264.25 176.5ZM288.75 170.5V134.5L272 138.75V174.5L288.75 170.5Z" fill="currentColor"/>
+                <path d="M224.5 209V343.25H216.75V290.25L180.5 299.5V166.5H188.75V218.25L224.5 209ZM217.25 267V235L188.25 242.25V274L217.25 267Z" fill="currentColor"/>
+                <path d="M97.5 118.25H105.25V215.75C111.417 209.583 118.417 206.5 126.25 206.5C131.583 206.5 136.417 208.333 140.75 212C145.083 215.5 147.25 220.667 147.25 227.5C147.25 232.833 145.667 237.75 142.5 242.25C139.333 246.75 135.083 251.25 129.75 255.75L112.5 270.5C109.333 273.167 106.5 275.75 104 278.25C101.5 280.917 99.3333 283.417 97.5 285.75V118.25Z" fill="currentColor"/>
+              </svg>
+              </button>
+              <div id="abAccidentalPanel" class="ab-bowslur-panel" hidden>
+                <button class="ab-bowslur-opt" data-acc="sharp" type="button">♯ シャープ</button>
+                <button class="ab-bowslur-opt" data-acc="flat" type="button">♭ フラット</button>
+                <button class="ab-bowslur-opt" data-acc="natural" type="button">♮ ナチュラル</button>
+              </div>
+            </div>
+            <button id="abRedCircleBtn" class="ab-btn" type="button" aria-label="赤丸">○</button>
+            <!-- ボーイング + スラー 複合ボタン -->
+            <div class="ab-bowslur-group" style="position:relative;">
+              <button id="abBowSlurBtn" class="ab-btn" type="button" aria-label="ボーイング/スラー">
+                <img src="./assets/bowing.svg" width="26" height="26" aria-hidden="true" style="display:block;"/>
+              </button>
+              <div id="abBowSlurPanel" class="ab-bowslur-panel" hidden>
+                <button id="abUpBowBtn" class="ab-bowslur-opt" type="button" aria-label="アップボウ">
+                  <svg viewBox="0 0 400 400" width="22" height="22" fill="none" aria-hidden="true"><path d="M340.715 138.286C342.766 133.158 348.586 130.664 353.714 132.715C358.842 134.766 361.336 140.586 359.285 145.714L303.285 285.714C301.767 289.51 298.089 292 294 292C289.911 292 286.233 289.51 284.715 285.714L228.715 145.714C226.664 140.586 229.158 134.766 234.286 132.715C239.414 130.664 245.234 133.158 247.285 138.286L294 255.073L340.715 138.286Z" fill="currentColor"/></svg>
+                  <span style="font-size:11px;line-height:1;">↑ アップ</span>
+                </button>
+                <button id="abDownBowBtn" class="ab-bowslur-opt" type="button" aria-label="ダウンボウ">
+                  <svg viewBox="0 0 400 400" width="22" height="22" fill="none" aria-hidden="true"><path d="M170 197V90H60V197C60 202.523 55.5228 207 50 207C44.4772 207 40 202.523 40 197V80C40 74.4772 44.4772 70 50 70H180C185.523 70 190 74.4772 190 80V197C190 202.523 185.523 207 180 207C174.477 207 170 202.523 170 197Z" fill="currentColor"/><path d="M50 80H180V116H50V80Z" fill="currentColor"/></svg>
+                  <span style="font-size:11px;line-height:1;">↓ ダウン</span>
+                </button>
+                <div style="width:100%;height:1px;background:var(--line,#ddd);margin:2px 0;"></div>
+                <button id="abSlurOptBtn" class="ab-bowslur-opt" type="button" aria-label="スラー">
+                  <svg viewBox="0 0 400 400" width="22" height="22" fill="none" aria-hidden="true"><path d="M50 300 Q200 80 350 300" stroke="currentColor" stroke-width="24" fill="none" stroke-linecap="round"/><circle cx="50" cy="300" r="18" fill="currentColor"/><circle cx="350" cy="300" r="18" fill="currentColor"/></svg>
+                  <span style="font-size:11px;line-height:1;">スラー</span>
+                </button>
+              </div>
+            </div>
+            <!-- 後方互換のため残す（非表示） -->
+            <button id="abBowingBtn" hidden></button>
+            <button id="abSlurBtn" hidden></button>
+            <div class="ab-cs-sep"></div>
+            <button id="abClearBtn" class="ab-btn" type="button" aria-label="注釈を消去" style="font-size:11px;color:#c00;">消去</button>
+
+          </div>
+        </div>
+        <div id="abTooltip" class="ab-tooltip" role="tooltip" aria-hidden="true"></div>
+        <div class="beat-overlay">
+          <span id="metronomeBeatIndicator" class="beat-indicator">●○○○</span>
+        </div>
         <aside class="left-rail">
           <button id="mobileToolsToggle" class="mobile-tools-toggle" type="button">ツール ▾</button>
           <div class="mobile-tools-panel">
-          <div class="reader-tools">
-            <button id="metronomeWindowToggle" class="ghost-button" type="button" onclick="window.toggleMetronomeWindowFallback && window.toggleMetronomeWindowFallback()">メトロノーム</button>
-            <button id="tunerWindowToggle" class="ghost-button" type="button" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()">チューナー</button>
-          </div>
-
           <div class="reader-tools annotation-tools-section">
             <div class="tool-group">
               <span>注釈ツール</span>
@@ -2460,7 +2972,11 @@
             <button id="exportAnnotatedPdfButton" class="ghost-button" type="button">PDFを書き出す</button>
           </div>
 
-          <section id="metronomePanel" class="metronome-panel feature-panel" aria-label="メトロノーム">
+          <div class="tool-section">
+            <button class="tool-section-toggle" id="metronomeWindowToggle" type="button" aria-expanded="false" onclick="window.toggleMetronomeWindowFallback && window.toggleMetronomeWindowFallback()">
+              <span class="tool-section-arrow" aria-hidden="true">▶</span>メトロノーム
+            </button>
+            <section id="metronomePanel" class="metronome-panel feature-panel" hidden aria-label="メトロノーム">
             <div class="metro-swing">
               <div class="metro-rail">
                 <div id="metronomeArm" class="metro-arm">
@@ -2508,124 +3024,13 @@
             </div>
             <button id="metronomeToggleButton" class="metro-start" type="button">START</button>
           </section>
-
-          <div class="reader-tools">
-            <div class="layout-controls">
-              <span>表示</span>
-              <div class="layout-buttons">
-                <button id="layoutSingleButton" class="tool-button active" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('single')">1P</button>
-                <button id="layoutSpreadABtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadA')">見開きA</button>
-                <button id="layoutSpreadBBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadB')">見開きB</button>
-                <button id="layoutScrollVBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollV')">縦つなぎ</button>
-                <button id="layoutScrollHBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollH')">横つなぎ</button>
-                <button id="fullscreenToggleButton" class="tool-button" type="button">全画面</button>
-              </div>
-            </div>
-            <div class="zoom-controls">
-              <button id="zoomOutButton" class="ghost-button" type="button">−</button>
-              <span id="zoomLabel" class="zoom-label">100%</span>
-              <button id="zoomInButton" class="ghost-button" type="button">＋</button>
-              <button id="zoomResetButton" class="ghost-button" type="button">100%</button>
-            </div>
-            <div class="pager">
-              <button id="readerPrevButton" class="ghost-button" type="button">前へ</button>
-              <span id="readerPageLabel" class="page-label">- / -</span>
-              <button id="readerNextButton" class="ghost-button" type="button">次へ</button>
-            </div>
-          </div>
-          </div><!-- /.mobile-tools-panel -->
-
-        </aside>
-
-        <div id="annotationBar" class="annotation-bar">
-          <!-- ペンボタン (Figmaアイコン: 色付き部分が選択色に変わる) -->
-          <button id="abPenBtn" class="ab-btn active" type="button" aria-label="ペン">
-            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <path class="ab-pen-color" d="M49.6985 351.026L131.016 302.236L85.0539 256.274L36.2635 337.591L49.6985 351.026Z" fill="#b0b0b0"/>
-              <path class="ab-pen-color" d="M205.262 37.0711L212.333 30L357.29 174.957L350.219 182.028L290.115 206.777L180.513 97.1752L205.262 37.0711Z" fill="#b0b0b0"/>
-              <path class="ab-pen-color" d="M364.361 340.323C372.645 340.323 379.361 347.038 379.361 355.323C379.361 363.607 372.645 370.323 364.361 370.323L134.361 370.323C126.077 370.323 119.361 363.607 119.361 355.323C119.361 347.038 126.077 340.323 134.361 340.323L364.361 340.323Z" fill="#b0b0b0" fill-opacity="0.45"/>
-              <path d="M138.087 295.165C140.264 297.342 141.317 300.401 140.941 303.458C140.565 306.514 138.801 309.227 136.16 310.811L54.843 359.602C50.9083 361.962 45.872 361.342 42.6274 358.098L29.1924 344.663C25.9478 341.418 25.3279 336.382 27.6884 332.447L76.4788 251.13C78.0631 248.489 80.776 246.725 83.8323 246.349C86.8885 245.973 89.9475 247.026 92.1249 249.203L138.087 295.165ZM48.8554 336.041L51.2488 338.435L114.888 300.251L87.0391 272.402L48.8554 336.041Z" fill="black"/>
-              <path d="M219.404 37.0711L213.747 42.7286L192.298 94.8177L292.472 194.992L344.561 173.543L350.219 167.886L364.361 182.028L357.29 189.099C356.356 190.033 355.247 190.772 354.026 191.274L295.773 215.261L268.902 242.132C268.323 242.71 267.676 243.215 266.975 243.636L143.231 317.882C139.297 320.243 134.26 319.623 131.016 316.378L70.9117 256.274C67.6671 253.03 67.0471 247.993 69.4077 244.059L143.654 120.315C144.075 119.614 144.58 118.966 145.158 118.388L172.029 91.5169L196.016 33.2635C196.518 32.0428 197.257 30.9335 198.191 30L205.262 22.9289L219.404 37.0711ZM160.17 131.66L90.5746 247.653L139.637 296.715L255.63 227.12L275.973 206.777L180.513 111.317L160.17 131.66Z" fill="black"/>
-            </svg>
-          </button>
-          <!-- マーカーボタン -->
-          <button id="abMarkerBtn" class="ab-btn" type="button" aria-label="マーカー">
-            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <path class="ab-marker-color" d="M123.393 337.767L141.071 320.09L84.5023 263.521L24.3982 323.625L38.5403 337.767L123.393 337.767Z" fill="#b0b0b0"/>
-              <path class="ab-marker-color" d="M363.86 196.296L208.296 40.7324L165.869 83.1588L158.798 107.2L297.391 245.793L321.433 238.722L363.86 196.296Z" fill="#b0b0b0"/>
-              <path class="ab-marker-color" d="M193.183 328.349L166.183 364.349L386.183 364.349L386.183 328.349L193.183 328.349Z" fill="#b0b0b0" fill-opacity="0.45"/>
-              <path d="M249.618 285.352C255.107 284.742 260.051 288.698 260.661 294.187C261.271 299.676 257.316 304.62 251.827 305.23L191.673 311.913L162.334 341.253C158.429 345.158 152.097 345.158 148.192 341.253L63.3391 256.4C59.4339 252.495 59.4339 246.163 63.3391 242.258L92.6786 212.918L99.3622 152.765C99.9721 147.276 104.916 143.321 110.405 143.931C115.894 144.541 119.85 149.485 119.24 154.974L112.169 218.613C111.918 220.87 110.907 222.975 109.301 224.58L84.5523 249.329L155.263 320.04L180.012 295.291C181.617 293.685 183.722 292.674 185.979 292.423L249.618 285.352Z" fill="black"/>
-              <path d="M215.367 47.8035L174.61 88.5609L168.285 107.535C166.538 112.774 160.875 115.605 155.636 113.859C150.397 112.112 147.566 106.449 149.312 101.209L156.383 79.9962C156.874 78.5236 157.701 77.1854 158.799 76.0878L201.225 33.6613L215.367 47.8035ZM370.931 203.367L328.504 245.793C327.407 246.891 326.068 247.718 324.596 248.209L303.383 255.28C298.143 257.026 292.48 254.195 290.733 248.956C288.987 243.717 291.818 238.053 297.057 236.307L316.031 229.982L356.788 189.225L370.931 203.367Z" fill="black"/>
-              <path d="M77.4813 256.4C81.3865 252.495 87.7182 252.495 91.6234 256.4C95.5287 260.305 95.5287 266.637 91.6234 270.542L38.5904 323.575L42.9001 327.885L119.293 327.725L134.05 312.969C137.955 309.063 144.287 309.063 148.192 312.969C152.097 316.874 152.097 323.205 148.192 327.111L130.514 344.788C128.644 346.659 126.109 347.712 123.464 347.718L38.7879 347.894C36.1286 347.9 33.5766 346.846 31.6961 344.965L17.3772 330.646C13.472 326.741 13.472 320.409 17.3772 316.504L77.4813 256.4Z" fill="black"/>
-              <path d="M243.651 288.22L286.078 245.793L158.799 118.514L116.372 160.941C112.467 164.846 106.135 164.846 102.23 160.941C98.3248 157.035 98.3248 150.704 102.23 146.798L151.728 97.3009C155.633 93.3957 161.964 93.3957 165.87 97.3009L307.291 238.722C311.196 242.628 311.196 248.959 307.291 252.864L257.794 302.362C253.888 306.267 247.557 306.267 243.651 302.362C239.746 298.457 239.746 292.125 243.651 288.22Z" fill="black"/>
-              <path d="M158.799 104.372L134.05 129.121L275.471 270.542L300.22 245.793L158.799 104.372Z" fill="black"/>
-              <path d="M307.291 238.722C311.196 242.628 311.196 248.959 307.291 252.864L282.542 277.613C278.637 281.518 272.305 281.518 268.4 277.613L126.979 136.192C123.074 132.287 123.074 125.955 126.979 122.05L151.728 97.3009C153.603 95.4256 156.146 94.3717 158.799 94.3717C161.451 94.3717 163.994 95.4256 165.87 97.3009L307.291 238.722ZM148.192 129.121L275.471 256.4L286.078 245.793L158.799 118.514L148.192 129.121Z" fill="black"/>
-            </svg>
-          </button>
-          <!-- 消しゴムボタン -->
-          <button id="abEraserBtn" class="ab-btn" type="button" aria-label="消しゴム">
-            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <g clip-path="url(#clip0_27_159)">
-                <path class="ab-eraser-color" data-active-color="#58B9FF" d="M346.198 140.066C357.914 151.782 357.914 170.777 346.198 182.492L296.701 231.99L183.563 118.853L233.061 69.3553C244.777 57.6396 263.772 57.6396 275.487 69.3553L346.198 140.066Z" fill="#ffffff"/>
-                <path d="M337.852 176.697C346.761 167.787 346.554 154.564 339.127 147.137L268.416 76.4264C260.989 68.9991 247.766 68.7925 238.857 77.7018L193.455 123.103L292.45 222.098L337.852 176.697ZM292.45 236.24L179.313 123.103L231.786 70.6307C244.206 58.2107 263.772 57.6396 275.487 69.3553L346.198 140.066C357.914 151.782 357.343 171.348 344.923 183.768L292.45 236.24Z" fill="black"/>
-                <path class="ab-eraser-color" data-active-color="#FFF6F2" d="M289.63 239.061L182.793 345.898H127.766L63.3553 281.487C51.6396 269.772 51.6396 250.777 63.3553 239.061L176.492 125.924L289.63 239.061Z" fill="#ffffff"/>
-                <path d="M63.9693 238.447L180.381 122.036L293.518 235.173L183.589 345.101L127.766 345.898L63.3553 281.487L70.6311 274.212L132.112 335.693L179.532 335.016L279.171 235.377L180.176 136.382L71.0404 245.518C63.0038 253.555 62.8206 266.401 70.6311 274.212L63.3553 281.487C51.6396 269.772 51.9145 250.502 63.9693 238.447Z" fill="black"/>
-                <path d="M353.269 132.995C368.89 148.616 368.89 173.943 353.269 189.563L296.701 246.132L169.421 118.853L225.99 62.2843C241.611 46.6633 266.937 46.6633 282.558 62.2843L353.269 132.995ZM275.487 69.3553C263.772 57.6396 244.777 57.6396 233.061 69.3553L183.563 118.853L296.701 231.99L346.198 182.492C357.914 170.777 357.914 151.782 346.198 140.066L275.487 69.3553Z" fill="black"/>
-                <path d="M285.487 340.127C288.249 340.127 290.487 342.365 290.487 345.126C290.487 347.888 288.249 350.126 285.487 350.126H119.924C117.163 350.126 114.924 347.888 114.924 345.126C114.924 342.365 117.163 340.127 119.924 340.127H285.487Z" fill="black"/>
-                <path d="M348.484 330.122C354.007 330.122 358.484 334.599 358.484 340.122C358.484 345.645 354.007 350.122 348.484 350.122L124 350.122C118.477 350.122 114 345.645 114 340.122C114 334.599 118.477 330.122 124 330.122L348.484 330.122Z" fill="black"/>
-                <path d="M225.99 62.2843C241.367 46.9073 266.149 46.6669 281.82 61.5634L282.558 62.2843L275.487 69.3554C263.772 57.6396 244.777 57.6396 233.061 69.3554L183.563 118.853L296.701 231.99L346.198 182.492C357.914 170.777 357.914 151.782 346.198 140.066L275.487 69.3554L282.558 62.2843L353.269 132.995C368.89 148.616 368.89 173.943 353.269 189.564L296.701 246.132L169.421 118.853L225.99 62.2843Z" fill="black"/>
-                <path d="M342.663 178.957C352.426 169.194 352.426 153.365 342.663 143.602L271.952 72.8908C262.189 63.1277 246.36 63.1277 236.596 72.8908L190.635 118.853L296.701 224.919L342.663 178.957ZM296.701 231.99L183.563 118.853L233.061 69.3554C244.594 57.8227 263.18 57.6424 274.933 68.8146L275.487 69.3554L346.198 140.066L346.739 140.62C357.911 152.374 357.731 170.96 346.198 182.492L296.701 231.99Z" fill="black"/>
-                <path d="M295.401 233.289L183.975 344.715L127.766 345.898L59.7666 277.899L59.384 277.346C51.5016 265.678 52.7231 249.693 63.0515 239.365L182.264 120.152L295.401 233.289ZM66.183 243.314C57.9148 251.966 57.0576 265.102 63.6198 274.681L129.793 340.854L181.861 339.759L288.33 233.289L182.264 127.223L66.587 242.9L66.183 243.314Z" fill="black"/>
-                <path d="M353.269 132.995C368.89 148.616 368.89 173.943 353.269 189.564L194.17 348.663H180.028L346.198 182.492C357.914 170.777 357.914 151.782 346.198 140.066L275.487 69.3554C263.772 57.6396 244.777 57.6396 233.061 69.3554L63.3554 239.061C51.6396 250.777 51.6396 269.772 63.3554 281.487L130.53 348.663H116.388L56.2843 288.558L55.5634 287.82C40.6669 272.149 40.9073 247.367 56.2843 231.99L225.99 62.2843C241.611 46.6633 266.937 46.6633 282.558 62.2843L353.269 132.995Z" fill="black"/>
-              </g>
-              <defs>
-                <clipPath id="clip0_27_159">
-                  <rect width="400" height="400" fill="white"/>
-                </clipPath>
-              </defs>
-            </svg>
-          </button>
-          <!-- テキストボタン -->
-          <button id="abTextBtn" class="ab-btn" type="button" aria-label="テキスト">
-            <svg viewBox="0 0 400 400" width="30" height="30" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-              <path class="ab-text-color" data-active-color="#BDE7A7" d="M345 301.25C345 319.89 330.076 335 311.667 335H78.3333L77.4729 334.989C59.4611 334.527 45 319.598 45 301.25V98.75C45 80.1104 59.9238 65 78.3333 65H311.667C330.076 65 345 80.1104 345 98.75V301.25Z" fill="#ffffff"/>
-              <path d="M315 315V335H75V315H315ZM325 305V95C325 89.4772 320.523 85 315 85H75C69.4772 85 65 89.4772 65 95V305C65 310.523 69.4771 315 75 315V335C58.6904 335 45.4205 321.985 45.0098 305.774L45 305V95C45 78.4315 58.4315 65 75 65H315L315.774 65.0098C331.985 65.4205 345 78.6904 345 95V305C345 321.31 331.985 334.579 315.774 334.99L315 335V315C320.523 315 325 310.523 325 305Z" fill="black"/>
-              <path d="M257.5 150V137.5H207.5V267.5H220C226.904 267.5 232.5 273.096 232.5 280C232.5 286.904 226.904 292.5 220 292.5H170C163.096 292.5 157.5 286.904 157.5 280C157.5 273.096 163.096 267.5 170 267.5H182.5V137.5H132.5V150C132.5 156.904 126.904 162.5 120 162.5C113.096 162.5 107.5 156.904 107.5 150V125C107.5 118.096 113.096 112.5 120 112.5H270C276.904 112.5 282.5 118.096 282.5 125V150C282.5 156.904 276.904 162.5 270 162.5C263.096 162.5 257.5 156.904 257.5 150Z" fill="black"/>
-            </svg>
-          </button>
-
-          <!-- カラー/サイズパネル (ペン・マーカー選択時のみ表示) -->
-          <div id="abColorSizePanel" class="ab-cs-panel">
-            <button class="ab-color" data-color="#e53935" style="background:#e53935" type="button" aria-label="赤"></button>
-            <button class="ab-color" data-color="#1e88e5" style="background:#1e88e5" type="button" aria-label="青"></button>
-            <button class="ab-color" data-color="#212121" style="background:#212121" type="button" aria-label="黒"></button>
-            <button class="ab-color" data-color="#ffd600" style="background:#ffd600" type="button" aria-label="黄"></button>
-            <button id="abColorCustomBtn" class="ab-color ab-color-custom" type="button" aria-label="カスタム色">+</button>
-            <input type="color" id="abColorInput" value="#d32f2f" tabindex="-1" aria-hidden="true"/>
-            <div class="ab-cs-sep"></div>
-            <button class="ab-size" data-size="S" type="button" aria-label="細"></button>
-            <button class="ab-size" data-size="M" type="button" aria-label="中"></button>
-            <button class="ab-size" data-size="L" type="button" aria-label="太"></button>
           </div>
 
-          <div class="ab-cs-sep"></div>
-          <!-- 仮置きボタン (アイコンは後で追加) -->
-          <button id="abFingerBtn" class="ab-btn" type="button" aria-label="指番号" title="指番号">指</button>
-          <button id="abAccidentalBtn" class="ab-btn" type="button" aria-label="臨時記号" title="臨時記号">♯♭</button>
-          <button id="abBowingBtn" class="ab-btn" type="button" aria-label="ボーイング" title="ボーイング">弓</button>
-          <button id="abRedCircleBtn" class="ab-btn" type="button" aria-label="赤丸" title="赤マル">○</button>
-          <div class="ab-cs-sep"></div>
-          <button id="abClearBtn" class="ab-btn" type="button" aria-label="注釈を消去" title="注釈を消去" style="font-size:11px;color:#c00;">消去</button>
-
-          <span id="metronomeBeatIndicator" class="beat-indicator ab-beat">●○○○</span>
-        </div>
-
-        <aside class="right-rail"></aside>
-
-        <div class="reader-main">
-        <div id="readerStage" class="reader-stage"></div>
-        <div id="tunerPanel" class="tuner-panel floating-panel feature-panel" hidden>
-          <button class="panel-close-btn" type="button" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()" aria-label="閉じる">✕</button>
+          <div class="tool-section">
+            <button class="tool-section-toggle" id="tunerWindowToggle" type="button" aria-expanded="false" onclick="window.toggleTunerWindowFallback && window.toggleTunerWindowFallback()">
+              <span class="tool-section-arrow" aria-hidden="true">▶</span>チューナー
+            </button>
+            <div id="tunerPanel" class="tuner-panel feature-panel" hidden>
           <button id="micTunerToggleButton" class="tuner-mic-btn" type="button" aria-label="マイクチューナー開始/停止">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
@@ -2663,13 +3068,70 @@
               <span>厳しめ</span>
             </div>
           </div>
-        </div>
+            </div>
+          </div>
+
+          <div class="tool-section">
+            <button class="tool-section-toggle" id="displaySectionToggle" type="button" aria-expanded="true">
+              <span class="tool-section-arrow" aria-hidden="true">▼</span>表示
+            </button>
+            <div id="displaySectionBody">
+              <div class="layout-controls">
+                <div class="layout-buttons">
+                <button id="layoutSingleButton" class="tool-button active" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('single')" aria-label="1ページ"><svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true"><path d="M320 45C325.523 45 330 49.4772 330 55V355C330 360.523 325.523 365 320 365H80C74.4772 365 70 360.523 70 355V55C70 49.4772 74.4772 45 80 45H320ZM90 345H310V65H90V345Z" fill="currentColor"/><path d="M290 300C292.761 300 295 302.239 295 305C295 307.761 292.761 310 290 310L110 310C107.239 310 105 307.761 105 305C105 302.239 107.239 300 110 300L290 300Z" fill="currentColor"/><path d="M290 130C292.761 130 295 132.239 295 135C295 137.761 292.761 140 290 140L110 140C107.239 140 105 137.761 105 135C105 132.239 107.239 130 110 130L290 130Z" fill="currentColor"/><path d="M290 100C292.761 100 295 102.239 295 105C295 107.761 292.761 110 290 110L110 110C107.239 110 105 107.761 105 105C105 102.239 107.239 100 110 100L290 100Z" fill="currentColor"/><path d="M290 270C292.761 270 295 272.239 295 275C295 277.761 292.761 280 290 280L110 280C107.239 280 105 277.761 105 275C105 272.239 107.239 270 110 270L290 270Z" fill="currentColor"/><path d="M160.696 154.696C162.841 152.551 166.068 151.91 168.87 153.071C171.673 154.232 173.5 156.967 173.5 160V242.5H184C188.142 242.5 191.5 245.858 191.5 250C191.5 254.142 188.142 257.5 184 257.5H148C143.858 257.5 140.5 254.142 140.5 250C140.5 245.858 143.858 242.5 148 242.5H158.5V178.107L154.304 182.304C151.375 185.233 146.625 185.233 143.696 182.304C140.767 179.375 140.767 174.625 143.696 171.696L160.696 154.696Z" fill="currentColor"/><path d="M250.5 182.569C250.5 177.62 249.285 174.677 247.991 172.866C246.669 171.015 244.842 169.759 242.715 168.908C240.545 168.04 238.252 167.676 236.407 167.553C235.508 167.493 234.771 167.494 234.288 167.508C234.048 167.515 233.874 167.525 233.779 167.531C233.732 167.534 233.704 167.537 233.698 167.537L233.722 167.534C233.725 167.534 233.729 167.534 233.733 167.533C233.735 167.533 233.738 167.533 233.739 167.533L233.738 167.532C233.493 167.556 233.247 167.569 233 167.569H220.5V197.569H233C233.245 197.569 233.49 197.581 233.733 197.605L233.722 197.604C233.72 197.604 233.718 197.604 233.716 197.603C233.73 197.605 233.751 197.606 233.779 197.608C233.874 197.615 234.048 197.624 234.288 197.631C234.771 197.645 235.508 197.646 236.407 197.586C238.252 197.463 240.545 197.098 242.715 196.23C244.842 195.379 246.669 194.124 247.991 192.272C249.285 190.461 250.5 187.518 250.5 182.569ZM233.716 197.603C233.707 197.603 233.701 197.603 233.698 197.602C233.7 197.603 233.702 197.602 233.706 197.602C233.709 197.603 233.712 197.603 233.716 197.603ZM265.5 182.569C265.5 190.12 263.59 196.24 260.196 200.991C256.831 205.702 252.407 208.509 248.285 210.158C244.205 211.79 240.248 212.363 237.405 212.553C235.961 212.649 234.744 212.65 233.86 212.625C233.417 212.612 233.053 212.593 232.782 212.575C232.755 212.573 232.729 212.571 232.704 212.569H220.5V250.069C220.5 254.211 217.142 257.569 213 257.569C208.858 257.569 205.5 254.211 205.5 250.069V160.069C205.5 158.08 206.29 156.173 207.696 154.767C209.103 153.36 211.011 152.569 213 152.569H232.715C232.737 152.568 232.759 152.566 232.782 152.564C233.053 152.546 233.417 152.526 233.86 152.514C234.744 152.488 235.961 152.49 237.405 152.586C240.248 152.775 244.205 153.348 248.285 154.98C252.407 156.629 256.831 159.436 260.196 164.147C263.59 168.899 265.5 175.018 265.5 182.569Z" fill="currentColor"/><path d="M125 225H110C107.239 225 105 222.761 105 220C105 217.239 107.239 215 110 215H125V225ZM290 215C292.761 215 295 217.239 295 220C295 222.761 292.761 225 290 225H275V215H290Z" fill="currentColor"/><path d="M125 195H110C107.239 195 105 192.761 105 190C105 187.239 107.239 185 110 185H125V195ZM290 185C292.761 185 295 187.239 295 190C295 192.761 292.761 195 290 195H275V185H290Z" fill="currentColor"/></svg></button>
+                <button id="layoutSpreadABtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadA')" aria-label="見開きA"><svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true"><path d="M184 30C189.523 30 194 34.4772 194 40V175C194 180.523 189.523 185 184 185H76C70.4772 185 66 180.523 66 175V40C66 34.4772 70.4772 30 76 30H184ZM86 165H174V50H86V165Z" fill="currentColor"/><path d="M329 30C334.523 30 339 34.4772 339 40V175C339 180.523 334.523 185 329 185H221C215.477 185 211 180.523 211 175V40C211 34.4772 215.477 30 221 30H329ZM231 165H319V50H231V165Z" fill="currentColor"/><path d="M184 215C189.523 215 194 219.477 194 225V360C194 365.523 189.523 370 184 370H76C70.4772 370 66 365.523 66 360V225C66 219.477 70.4772 215 76 215H184ZM86 350H174V235H86V350Z" fill="currentColor"/><path d="M329 215C334.523 215 339 219.477 339 225V360C339 365.523 334.523 370 329 370H221C215.477 370 211 365.523 211 360V225C211 219.477 215.477 215 221 215H329ZM231 350H319V235H231V350Z" fill="currentColor"/><path d="M118.7 125.2C119.367 125.2 120.333 125.233 121.6 125.3C122.9 125.367 123.933 125.4 124.7 125.4C124.667 124.367 124.633 123.3 124.6 122.2C124.6 121.1 124.6 120.067 124.6 119.1V108.7C124.6 107.6 124.683 106.217 124.85 104.55C125.05 102.883 125.217 101.2 125.35 99.5C123.817 101.167 122.083 102.633 120.15 103.9C118.25 105.133 116.2 106.217 114 107.15C112.467 106.45 111.15 105.3 110.05 103.7C108.983 102.067 108.317 100.383 108.05 98.65C112.583 96.05 116.133 93.4667 118.7 90.9C121.3 88.3 123.45 85.3167 125.15 81.95C126.383 81.75 127.617 81.6333 128.85 81.6C130.117 81.5333 131.25 81.5 132.25 81.5C133.317 81.5 134.417 81.5333 135.55 81.6C136.683 81.6333 137.833 81.75 139 81.95V119.1C139 120.067 138.983 121.1 138.95 122.2C138.95 123.3 138.95 124.367 138.95 125.4C139.617 125.4 140.683 125.367 142.15 125.3C143.617 125.233 144.683 125.2 145.35 125.2H149.3C149.5 126.033 149.65 126.983 149.75 128.05C149.85 129.117 149.9 130.15 149.9 131.15C149.9 132.15 149.85 133.167 149.75 134.2C149.65 135.233 149.5 136.167 149.3 137H112.1C111.633 135.1 111.4 133.15 111.4 131.15C111.4 128.95 111.633 126.967 112.1 125.2H118.7Z" fill="currentColor"/><path d="M255.05 94.3C256.217 90.6333 258.417 87.4833 261.65 84.85C264.883 82.1833 268.817 80.85 273.45 80.85C277.183 80.85 280.417 81.6 283.15 83.1C285.917 84.5667 288.05 86.5833 289.55 89.15C291.05 91.7167 291.8 94.6333 291.8 97.9C291.8 101.433 290.767 104.583 288.7 107.35C286.633 110.117 284.2 112.633 281.4 114.9L274.35 120.6C272.817 121.8 271.383 123.033 270.05 124.3C268.717 125.533 267.817 126.65 267.35 127.65C269.75 127.317 272.083 127.067 274.35 126.9C276.617 126.733 278.467 126.65 279.9 126.65H293.5C293.5 127.25 293.483 128.017 293.45 128.95C293.417 129.883 293.35 130.667 293.25 131.3C292.617 135.167 290.067 137.1 285.6 137.1H258.75C257.95 136.433 257.017 135.367 255.95 133.9C254.883 132.433 254.35 131.083 254.35 129.85C254.35 127.383 255.433 124.767 257.6 122C259.767 119.2 262.233 116.617 265 114.25L274.25 106.35C275.783 105.117 277.017 103.783 277.95 102.35C278.883 100.917 279.35 99.3667 279.35 97.7C279.35 95.9 278.733 94.35 277.5 93.05C276.3 91.75 274.7 91.1 272.7 91.1C270.567 91.1 268.733 91.85 267.2 93.35C265.7 94.8167 264.567 96.5333 263.8 98.5C262.1 98.4333 260.417 98 258.75 97.2C257.083 96.4 255.85 95.4333 255.05 94.3Z" fill="currentColor"/><path d="M136 304.6C136 302.3 135.25 300.417 133.75 298.95C132.25 297.45 130.167 296.7 127.5 296.7C125.667 296.7 123.917 297.067 122.25 297.8C121.15 297.267 120.1 296.3 119.1 294.9C118.133 293.5 117.5 292.25 117.2 291.15V291.1L117.25 291.05L126.8 281.95C127.6 281.25 128.633 280.383 129.9 279.35C131.167 278.317 132.15 277.533 132.85 277L132.55 276.6C131.783 276.767 130.75 276.9 129.45 277C128.183 277.1 126.9 277.183 125.6 277.25C124.3 277.283 123.283 277.3 122.55 277.3H111.45C111.083 276.3 110.85 275.45 110.75 274.75C110.683 274.017 110.65 273.383 110.65 272.85C110.65 272.117 110.717 271.25 110.85 270.25C110.983 269.25 111.267 268.233 111.7 267.2H143.75C144.383 268.333 144.95 269.617 145.45 271.05C145.983 272.45 146.25 273.633 146.25 274.6C146.25 276.4 145.35 278.117 143.55 279.75L137.5 285.65C136.167 286.883 134.783 288.017 133.35 289.05C137.65 289.417 141.267 291 144.2 293.8C147.167 296.6 148.65 300.333 148.65 305C148.65 308.967 147.633 312.317 145.6 315.05C143.6 317.783 140.983 319.85 137.75 321.25C134.55 322.65 131.15 323.35 127.55 323.35C123.75 323.35 120.25 322.8 117.05 321.7C113.85 320.6 111.183 319.217 109.05 317.55C109.35 316.15 109.967 314.667 110.9 313.1C111.833 311.533 112.933 310.3 114.2 309.4C116 310.667 117.917 311.683 119.95 312.45C121.983 313.183 124.033 313.55 126.1 313.55C128.967 313.55 131.333 312.783 133.2 311.25C135.067 309.717 136 307.5 136 304.6Z" fill="currentColor"/><path d="M255.4 313.05C254.533 311.583 253.783 310.05 253.15 308.45C252.55 306.817 252.25 305.383 252.25 304.15C252.25 303.083 252.45 302.05 252.85 301.05C253.25 300.017 253.6 299.2 253.9 298.6L269.15 266.3C271.55 265.933 274.017 266.083 276.55 266.75C279.117 267.383 281.083 268.333 282.45 269.6L275.5 284.15C274.8 285.583 273.933 287.317 272.9 289.35C271.867 291.35 270.767 293.433 269.6 295.6C268.433 297.767 267.283 299.8 266.15 301.7L266.45 302.15C267.65 301.983 269.067 301.85 270.7 301.75C272.367 301.617 273.867 301.517 275.2 301.45C275.167 300.583 275.15 300.05 275.15 299.85V297C275.15 293.867 276.033 291.25 277.8 289.15C279.6 287.05 281.983 286 284.95 286H288.3L288.85 286.65V292.6C288.85 293.867 288.817 295.333 288.75 297C288.683 298.633 288.65 300.067 288.65 301.3C289.217 301.3 289.917 301.283 290.75 301.25C291.583 301.217 292.283 301.2 292.85 301.2H295.6C295.733 302.033 295.817 302.8 295.85 303.5C295.917 304.2 295.95 304.967 295.95 305.8C295.95 307.133 295.867 308.333 295.7 309.4C295.567 310.467 295.283 311.633 294.85 312.9H292.3C291.733 312.9 291.117 312.9 290.45 312.9C289.783 312.867 289.183 312.85 288.65 312.85C288.65 314.083 288.667 315.167 288.7 316.1C288.733 317.033 288.75 318.133 288.75 319.4V322C287.45 322.233 286.267 322.383 285.2 322.45C284.167 322.517 283.133 322.55 282.1 322.55C281.067 322.55 279.967 322.517 278.8 322.45C277.667 322.383 276.45 322.233 275.15 322V319.4C275.15 318.133 275.167 317.033 275.2 316.1C275.233 315.167 275.25 314.083 275.25 312.85C274.05 312.85 272.9 312.883 271.8 312.95C270.7 313.017 269.517 313.05 268.25 313.05H255.4Z" fill="currentColor"/></svg></button>
+                <button id="layoutSpreadBBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('spreadB')" aria-label="見開きB"><svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true"><path d="M254 30C259.523 30 264 34.4772 264 40V175C264 180.523 259.523 185 254 185H146C140.477 185 136 180.523 136 175V40C136 34.4772 140.477 30 146 30H254ZM156 165H244V50H156V165Z" fill="currentColor"/><path d="M181 215C186.523 215 191 219.477 191 225V360C191 365.523 186.523 370 181 370H73C67.4772 370 63 365.523 63 360V225C63 219.477 67.4772 215 73 215H181ZM83 350H171V235H83V350Z" fill="currentColor"/><path d="M323 215C328.523 215 333 219.477 333 225V360C333 365.523 328.523 370 323 370H215C209.477 370 205 365.523 205 360V225C205 219.477 209.477 215 215 215H323ZM225 350H313V235H225V350Z" fill="currentColor"/><path d="M188.7 125.2C189.367 125.2 190.333 125.233 191.6 125.3C192.9 125.367 193.933 125.4 194.7 125.4C194.667 124.367 194.633 123.3 194.6 122.2C194.6 121.1 194.6 120.067 194.6 119.1V108.7C194.6 107.6 194.683 106.217 194.85 104.55C195.05 102.883 195.217 101.2 195.35 99.5C193.817 101.167 192.083 102.633 190.15 103.9C188.25 105.133 186.2 106.217 184 107.15C182.467 106.45 181.15 105.3 180.05 103.7C178.983 102.067 178.317 100.383 178.05 98.65C182.583 96.05 186.133 93.4667 188.7 90.9C191.3 88.3 193.45 85.3167 195.15 81.95C196.383 81.75 197.617 81.6333 198.85 81.6C200.117 81.5333 201.25 81.5 202.25 81.5C203.317 81.5 204.417 81.5333 205.55 81.6C206.683 81.6333 207.833 81.75 209 81.95V119.1C209 120.067 208.983 121.1 208.95 122.2C208.95 123.3 208.95 124.367 208.95 125.4C209.617 125.4 210.683 125.367 212.15 125.3C213.617 125.233 214.683 125.2 215.35 125.2H219.3C219.5 126.033 219.65 126.983 219.75 128.05C219.85 129.117 219.9 130.15 219.9 131.15C219.9 132.15 219.85 133.167 219.75 134.2C219.65 135.233 219.5 136.167 219.3 137H182.1C181.633 135.1 181.4 133.15 181.4 131.15C181.4 128.95 181.633 126.967 182.1 125.2H188.7Z" fill="currentColor"/><path d="M106.4 279.8C107.5 275.767 109.7 272.383 113 269.65C116.333 266.883 120.367 265.5 125.1 265.5C129 265.5 132.383 266.267 135.25 267.8C138.117 269.333 140.333 271.433 141.9 274.1C143.467 276.767 144.25 279.833 144.25 283.3C144.25 286.5 143.283 289.5 141.35 292.3C139.417 295.067 137.067 297.583 134.3 299.85L127.25 305.6C126.217 306.433 125.117 307.333 123.95 308.3C122.783 309.233 121.933 310.117 121.4 310.95C124 310.583 126.483 310.3 128.85 310.1C131.25 309.9 133.217 309.8 134.75 309.8H146.05C146.05 310.467 146.017 311.367 145.95 312.5C145.917 313.633 145.833 314.567 145.7 315.3C144.933 319.867 141.967 322.15 136.8 322.15H110.65C110.05 321.617 109.367 320.867 108.6 319.9C107.833 318.9 107.15 317.833 106.55 316.7C105.983 315.567 105.7 314.517 105.7 313.55C105.7 311.117 106.733 308.567 108.8 305.9C110.867 303.233 113.233 300.733 115.9 298.4L125.5 289.9C126.633 288.933 127.567 287.883 128.3 286.75C129.067 285.583 129.45 284.317 129.45 282.95C129.45 281.583 128.983 280.383 128.05 279.35C127.15 278.283 125.883 277.75 124.25 277.75C122.383 277.75 120.8 278.433 119.5 279.8C118.233 281.167 117.317 282.767 116.75 284.6C114.717 284.6 112.7 284.133 110.7 283.2C108.733 282.233 107.3 281.1 106.4 279.8Z" fill="currentColor"/><path d="M274.3 304.55C274.3 302.683 273.65 301.133 272.35 299.9C271.083 298.633 269.317 298 267.05 298C265.483 298 263.95 298.317 262.45 298.95C261.15 298.283 259.917 297.1 258.75 295.4C257.583 293.7 256.833 292.183 256.5 290.85H256.55L264.3 283.7C265.2 282.933 266.317 282.017 267.65 280.95C269.017 279.883 270.017 279.117 270.65 278.65L270.35 278.15C269.617 278.317 268.6 278.467 267.3 278.6C266 278.7 264.733 278.783 263.5 278.85C262.3 278.917 261.45 278.95 260.95 278.95H251.1C250.667 277.683 250.383 276.633 250.25 275.8C250.15 274.933 250.1 274.2 250.1 273.6C250.1 272.733 250.183 271.717 250.35 270.55C250.517 269.35 250.867 268.15 251.4 266.95H283.95C284.683 268.283 285.35 269.767 285.95 271.4C286.55 273.033 286.85 274.433 286.85 275.6C286.85 277.7 285.783 279.7 283.65 281.6L279 285.95C277.567 287.217 276.117 288.35 274.65 289.35C278.983 289.95 282.517 291.633 285.25 294.4C288.017 297.167 289.4 300.733 289.4 305.1C289.4 309.033 288.383 312.367 286.35 315.1C284.317 317.833 281.65 319.917 278.35 321.35C275.05 322.75 271.483 323.45 267.65 323.45C263.783 323.45 260.183 322.883 256.85 321.75C253.55 320.583 250.8 319.117 248.6 317.35C248.9 315.65 249.583 313.883 250.65 312.05C251.75 310.217 253.083 308.767 254.65 307.7C256.383 308.967 258.25 309.967 260.25 310.7C262.25 311.433 264.167 311.8 266 311.8C268.467 311.8 270.467 311.183 272 309.95C273.533 308.717 274.3 306.917 274.3 304.55Z" fill="currentColor"/></svg></button>
+                <button id="layoutScrollVBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollV')" aria-label="縦つなぎ"><svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true"><path d="M70 35C70 29.4772 74.4772 25 80 25C85.5228 25 90 29.4772 90 35V160H310V35C310 29.4772 314.477 25 320 25C325.523 25 330 29.4772 330 35V170C330 175.523 325.523 180 320 180H80C74.4772 180 70 175.523 70 170V35Z" fill="currentColor"/><path d="M310 355V230H90V355C90 360.523 85.5228 365 80 365C74.4772 365 70 360.523 70 355V220C70 214.477 74.4772 210 80 210H320C325.523 210 330 214.477 330 220V355C330 360.523 325.523 365 320 365C314.477 365 310 360.523 310 355Z" fill="currentColor"/><path d="M290 265C292.761 265 295 267.239 295 270C295 272.761 292.761 275 290 275H110C107.239 275 105 272.761 105 270C105 267.239 107.239 265 110 265H290Z" fill="currentColor"/><path d="M290 115C292.761 115 295 117.239 295 120C295 122.761 292.761 125 290 125H110C107.239 125 105 122.761 105 120C105 117.239 107.239 115 110 115H290Z" fill="currentColor"/><path d="M290 85C292.761 85 295 87.2386 295 90C295 92.7614 292.761 95 290 95H110C107.239 95 105 92.7614 105 90C105 87.2386 107.239 85 110 85H290Z" fill="currentColor"/><path d="M290 30C292.761 30 295 32.2386 295 35C295 37.7614 292.761 40 290 40H110C107.239 40 105 37.7614 105 35C105 32.2386 107.239 30 110 30H290Z" fill="currentColor"/><path d="M290 295C292.761 295 295 297.239 295 300C295 302.761 292.761 305 290 305H110C107.239 305 105 302.761 105 300C105 297.239 107.239 295 110 295H290Z" fill="currentColor"/><path d="M290 350C292.761 350 295 352.239 295 355C295 357.761 292.761 360 290 360H110C107.239 360 105 357.761 105 355C105 352.239 107.239 350 110 350H290Z" fill="currentColor"/><path d="M165 305V85C165 65.67 180.67 50 200 50C219.33 50 235 65.67 235 85V305C235 324.33 219.33 340 200 340C180.67 340 165 324.33 165 305Z" fill="white"/><path d="M185 300V90C185 81.7157 191.716 75 200 75C208.284 75 215 81.7157 215 90V300C215 308.284 208.284 315 200 315C191.716 315 185 308.284 185 300Z" fill="currentColor"/></svg></button>
+                <button id="layoutScrollHBtn" class="tool-button" type="button" onclick="window.setReaderLayoutModeFallback && window.setReaderLayoutModeFallback('scrollH')" aria-label="横つなぎ"><svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true"><path d="M175 45C180.523 45 185 49.4772 185 55V355C185 360.523 180.523 365 175 365H75C69.4772 365 65 360.523 65 355C65 349.477 69.4772 345 75 345H165V65H75C69.4772 65 65 60.5228 65 55C65 49.4772 69.4772 45 75 45H175Z" fill="currentColor"/><path d="M225 45C219.477 45 215 49.4772 215 55V355C215 360.523 219.477 365 225 365H325C330.523 365 335 360.523 335 355C335 349.477 330.523 345 325 345H235V65H325C330.523 65 335 60.5228 335 55C335 49.4772 330.523 45 325 45H225Z" fill="currentColor"/><path d="M325 100C327.761 100 330 102.239 330 105C330 107.761 327.761 110 325 110L255 110C252.239 110 250 107.761 250 105C250 102.239 252.239 100 255 100L325 100Z" fill="currentColor"/><path d="M325 130C327.761 130 330 132.239 330 135C330 137.761 327.761 140 325 140L255 140C252.239 140 250 137.761 250 135C250 132.239 252.239 130 255 130L325 130Z" fill="currentColor"/><path d="M325 185C327.761 185 330 187.239 330 190C330 192.761 327.761 195 325 195L255 195C252.239 195 250 192.761 250 190C250 187.239 252.239 185 255 185L325 185Z" fill="currentColor"/><path d="M325 215C327.761 215 330 217.239 330 220C330 222.761 327.761 225 325 225L255 225C252.239 225 250 222.761 250 220C250 217.239 252.239 215 255 215L325 215Z" fill="currentColor"/><path d="M325 270C327.761 270 330 272.239 330 275C330 277.761 327.761 280 325 280L255 280C252.239 280 250 277.761 250 275C250 272.239 252.239 270 255 270L325 270Z" fill="currentColor"/><path d="M325 300C327.761 300 330 302.239 330 305C330 307.761 327.761 310 325 310L255 310C252.239 310 250 307.761 250 305C250 302.239 252.239 300 255 300L325 300Z" fill="currentColor"/><path d="M145 100C147.761 100 150 102.239 150 105C150 107.761 147.761 110 145 110L75 110C72.2386 110 70 107.761 70 105C70 102.239 72.2386 100 75 100L145 100Z" fill="currentColor"/><path d="M145 130C147.761 130 150 132.239 150 135C150 137.761 147.761 140 145 140L75 140C72.2386 140 70 137.761 70 135C70 132.239 72.2386 130 75 130L145 130Z" fill="currentColor"/><path d="M145 185C147.761 185 150 187.239 150 190C150 192.761 147.761 195 145 195L75 195C72.2386 195 70 192.761 70 190C70 187.239 72.2386 185 75 185L145 185Z" fill="currentColor"/><path d="M145 215C147.761 215 150 217.239 150 220C150 222.761 147.761 225 145 225L75 225C72.2386 225 70 222.761 70 220C70 217.239 72.2386 215 75 215L145 215Z" fill="currentColor"/><path d="M145 270C147.761 270 150 272.239 150 275C150 277.761 147.761 280 145 280L75 280C72.2386 280 70 277.761 70 275C70 272.239 72.2386 270 75 270L145 270Z" fill="currentColor"/><path d="M145 300C147.761 300 150 302.239 150 305C150 307.761 147.761 310 145 310L75 310C72.2386 310 70 307.761 70 305C70 302.239 72.2386 300 75 300L145 300Z" fill="currentColor"/><path d="M260 240L140.01 240.01C120.68 240.012 105.01 224.343 105.01 205.013C105.01 185.683 120.68 170.012 140.01 170.01L260 170C279.33 169.999 295 185.667 295 204.997C295 224.327 279.33 239.998 260 240Z" fill="white"/><path d="M257.273 220L142.737 220.01C134.453 220.011 127.737 213.296 127.737 205.011C127.737 196.727 134.453 190.011 142.737 190.01L257.273 190C265.557 190 272.273 196.715 272.273 204.999C272.273 213.283 265.557 220 257.273 220Z" fill="currentColor"/></svg></button>
+                <button id="fullscreenToggleButton" class="tool-button" type="button" aria-label="全画面"><svg viewBox="0 0 400 400" width="26" height="26" fill="none" aria-hidden="true"><path d="M280 90C285.523 90 290 94.4772 290 100V300C290 305.523 285.523 310 280 310H120C114.477 310 110 305.523 110 300V100C110 94.4772 114.477 90 120 90H280ZM130 290H270V110H130V290Z" fill="currentColor"/><path d="M60 110V50C60 44.4772 64.4772 40 70 40H130C135.523 40 140 44.4772 140 50C140 55.5228 135.523 60 130 60H80V110C80 115.523 75.5228 120 70 120C64.4772 120 60 115.523 60 110Z" fill="currentColor"/><path d="M340 290V350C340 355.523 335.523 360 330 360H270C264.477 360 260 355.523 260 350C260 344.477 264.477 340 270 340H320V290C320 284.477 324.477 280 330 280C335.523 280 340 284.477 340 290Z" fill="currentColor"/><path d="M253 262C255.761 262 258 259.761 258 257C258 254.239 255.761 252 253 252L147 252C144.239 252 142 254.239 142 257C142 259.761 144.239 262 147 262L253 262Z" fill="currentColor"/><path d="M253 232C255.761 232 258 229.761 258 227C258 224.239 255.761 222 253 222L147 222C144.239 222 142 224.239 142 227C142 229.761 144.239 232 147 232L253 232Z" fill="currentColor"/><path d="M253 148C255.761 148 258 145.761 258 143C258 140.239 255.761 138 253 138L147 138C144.239 138 142 140.239 142 143C142 145.761 144.239 148 147 148L253 148Z" fill="currentColor"/><path d="M253 178C255.761 178 258 175.761 258 173C258 170.239 255.761 168 253 168L147 168C144.239 168 142 170.239 142 173C142 175.761 144.239 178 147 178L253 178Z" fill="currentColor"/></svg></button>
+              </div>
+            </div>
+            <div class="zoom-controls">
+              <button id="zoomOutButton" class="ghost-button" type="button">−</button>
+              <span id="zoomLabel" class="zoom-label">100%</span>
+              <button id="zoomInButton" class="ghost-button" type="button">＋</button>
+              <button id="zoomResetButton" class="ghost-button" type="button">100%</button>
+            </div>
+            <div class="pager">
+              <button id="readerPrevButton" class="ghost-button" type="button">前へ</button>
+              <span id="readerPageLabel" class="page-label" title="クリックしてページ移動">- / -</span>
+              <input id="readerPageJumpInput" class="page-jump-input" type="number" min="1" hidden>
+              <button id="readerNextButton" class="ghost-button" type="button">次へ</button>
+            </div>
+            <div class="bookmark-controls">
+              <div class="bookmark-controls-header">
+                <span class="bookmark-controls-label">🔖 しおり</span>
+                <button id="abBookmarkAdd" class="bookmark-add-btn" type="button" title="しおりを追加">＋</button>
+              </div>
+              <div id="bookmarkAddForm" class="bookmark-add-form" hidden>
+                <span class="bookmark-form-label">ページ</span>
+                <input id="bookmarkPageInput" class="bookmark-page-input" type="number" min="1" value="1">
+                <button id="bookmarkSaveBtn" class="bookmark-save-btn" type="button">保存</button>
+                <button id="bookmarkCancelBtn" class="bookmark-cancel-btn" type="button">✕</button>
+              </div>
+              <div class="bookmark-slots">
+                <button id="abBookmark1" class="bookmark-slot" type="button" aria-label="しおり1">—</button>
+                <button id="abBookmark2" class="bookmark-slot" type="button" aria-label="しおり2">—</button>
+                <button id="abBookmark3" class="bookmark-slot" type="button" aria-label="しおり3">—</button>
+              </div>
+            </div>
+            </div>
+          </div>
+          </div><!-- /.mobile-tools-panel -->
+
+        </aside>
+
+
+        <aside class="right-rail"></aside>
+
+        <div class="reader-main">
+        <div id="readerStage" class="reader-stage"></div>
       </div>
       </div>
     </section>
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260619-82" defer></script>
+    <script src="script.js?v=20260701-03" defer></script>
   </body>
 </html>

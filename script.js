@@ -79,6 +79,7 @@ const readerTitle = document.getElementById('readerTitle');
 const readerStage = document.getElementById('readerStage');
 const readerPrevButton = document.getElementById('readerPrevButton');
 const readerNextButton = document.getElementById('readerNextButton');
+const readerPageJumpInput = document.getElementById('readerPageJumpInput');
 const focusPrevButton = document.getElementById('focusPrevButton');
 const focusNextButton = document.getElementById('focusNextButton');
 const readerPageLabel = document.getElementById('readerPageLabel');
@@ -99,9 +100,27 @@ const abEraserBtn = document.getElementById('abEraserBtn');
 const abTextBtn = document.getElementById('abTextBtn');
 const abFingerBtn = document.getElementById('abFingerBtn');
 const abAccidentalBtn = document.getElementById('abAccidentalBtn');
-const abBowingBtn = document.getElementById('abBowingBtn');
+const abBowingBtn = document.getElementById('abBowingBtn'); // kept for backward compat (legacy panel)
 const abRedCircleBtn = document.getElementById('abRedCircleBtn');
+const abSlurBtn = document.getElementById('abSlurBtn'); // kept for backward compat
+const abBowSlurBtn = document.getElementById('abBowSlurBtn');
+const abBowSlurPanel = document.getElementById('abBowSlurPanel');
+const abUpBowBtn = document.getElementById('abUpBowBtn');
+const abDownBowBtn = document.getElementById('abDownBowBtn');
+const abSlurOptBtn = document.getElementById('abSlurOptBtn');
+const abFingerPanel = document.getElementById('abFingerPanel');
+const abAccidentalPanel = document.getElementById('abAccidentalPanel');
 const abClearBtn = document.getElementById('abClearBtn');
+const abBookmarkSlots = [
+  document.getElementById('abBookmark1'),
+  document.getElementById('abBookmark2'),
+  document.getElementById('abBookmark3'),
+];
+const abBookmarkAdd = document.getElementById('abBookmarkAdd');
+const bookmarkAddForm = document.getElementById('bookmarkAddForm');
+const bookmarkPageInput = document.getElementById('bookmarkPageInput');
+const bookmarkSaveBtn = document.getElementById('bookmarkSaveBtn');
+const bookmarkCancelBtn = document.getElementById('bookmarkCancelBtn');
 const abColorSizePanel = document.getElementById('abColorSizePanel');
 const abColorCustomBtn = document.getElementById('abColorCustomBtn');
 const abColorInput = document.getElementById('abColorInput');
@@ -121,7 +140,6 @@ const layoutScrollHBtn = document.getElementById('layoutScrollHBtn');
 const fullscreenToggleButton = document.getElementById('fullscreenToggleButton');
 const metronomeWindowToggle = document.getElementById('metronomeWindowToggle');
 const metronomeBeatIndicator = document.getElementById('metronomeBeatIndicator');
-const focusMetronomeBeatIndicator = document.getElementById('focusMetronomeBeatIndicator');
 const tunerWindowToggle = document.getElementById('tunerWindowToggle');
 const metronomePanel = document.getElementById('metronomePanel');
 const tunerPanel = document.getElementById('tunerPanel');
@@ -152,6 +170,7 @@ const annotationRedoStacks = new Map(); // key → op[] (undoで取り除いたo
 let currentStroke = null;
 let annotationDb = null;
 const persistentAnnotationCanvases = new Map();
+const liveAnnotationCanvases = new Map(); // cacheKey → HTMLCanvasElement (slur/drag preview overlay)
 const folders = [
   { id: 'favorites', name: 'お気に入り', kind: 'special', parentId: null, system: true },
   { id: 'inbox', name: '未分類', kind: 'leaf', parentId: null, system: true },
@@ -291,6 +310,17 @@ let tunerThresholdPercent = 100;
 let tunerFreqHistory = []; // 時間的平滑化用の直近周波数履歴
 let activeTool = 'redPen';
 let lastPenTool = 'redPen';
+let lastBowSlurTool = 'bowing';
+let currentFingerNumber = '1';
+let currentAccidentalType = 'sharp';
+let currentBowType = 'up';
+let slurState = null; // { x1, y1 } normalized — P1 placed, awaiting P2
+let slurAnchorDrag = null;   // { key, index, canvas } — dragging a slur control point
+let slurBodyDrag = null;     // { key, index, canvas, startX, startY, origOp } — dragging entire slur
+let slurEndpointDrag = null; // { key, index, canvas, whichEnd } — dragging P1 or P2 endpoint
+let selectedSlur = null;     // { key, index } — slur kept selected
+let stampDragState = null; // { key, index, canvas, offX, offY } — dragging a stamp op
+let selectedStamp = null;  // { key, index } — stamp kept selected after drag or tap
 let stampSizeMultiplier = 1.0;
 let stampSizeLevelIndex = 2;
 let readerZoom = 1;
@@ -322,18 +352,19 @@ let isRenderingList = false;
 
 const toolMap = {
   redPen: { mode: 'draw', color: '#e53935', width: 2.4, alpha: 1 },
-  marker: { mode: 'draw', color: '#ffd600', width: 12, alpha: 0.32 },
+  marker: { mode: 'draw', color: '#ffd600', width: 24, alpha: 0.32 },
   eraser: { mode: 'erase', color: '#000000', width: 20, alpha: 1 },
-  finger: { mode: 'stamp', type: 'number', color: '#111111', size: 0.0168 },
+  finger: { mode: 'stamp', type: 'number', color: '#111111', size: 0.01344 },
   accidental: { mode: 'stamp', type: 'accidental', color: '#111111', size: 0.0286 },
   bowing: { mode: 'stamp', type: 'bowing', color: '#111111', size: 0.0286 },
   textStamp: { mode: 'stamp', type: 'freeText', color: '#111111', size: 0.0215 },
   redCircle: { mode: 'stamp', type: 'circle', color: '#d32f2f' },
+  slur:      { mode: 'slur',  color: '#111111', width: 2.0 },
 };
 
 const AB_COLORS = ['#e53935', '#1e88e5', '#212121', '#ffd600'];
 const AB_PEN_SIZES    = { S: 1.5, M: 2.4, L: 4 };
-const AB_MARKER_SIZES = { S: 8,   M: 12,  L: 18 };
+const AB_MARKER_SIZES = { S: 16,  M: 24,  L: 36 };
 const AB_ERASER_SIZES = { S: 40,  M: 60,  L: 80 };
 
 const eraserCursorEl = document.createElement('div');
@@ -1627,6 +1658,7 @@ async function openReaderItem(item, options = {}) {
   applyLayoutButtonState();
   updateZoomLabel();
   renderReaderTabs();
+  renderBookmarkSlots();
   await renderReaderPage();
 }
 
@@ -1777,22 +1809,78 @@ function applyActiveToolButtonState() {
   if (abAccidentalBtn) abAccidentalBtn.classList.toggle('active', activeTool === 'accidental');
   if (abBowingBtn) abBowingBtn.classList.toggle('active', activeTool === 'bowing');
   if (abRedCircleBtn) abRedCircleBtn.classList.toggle('active', activeTool === 'redCircle');
+  if (abSlurBtn) abSlurBtn.classList.toggle('active', activeTool === 'slur');
+  const bowSlurActive = activeTool === 'bowing' || activeTool === 'slur';
+  if (abBowSlurBtn) abBowSlurBtn.classList.toggle('active', bowSlurActive);
+  if (abUpBowBtn) abUpBowBtn.classList.toggle('active', activeTool === 'bowing' && currentBowType === 'up');
+  if (abDownBowBtn) abDownBowBtn.classList.toggle('active', activeTool === 'bowing' && currentBowType === 'down');
+  if (abSlurOptBtn) abSlurOptBtn.classList.toggle('active', activeTool === 'slur');
+  if (abFingerPanel) {
+    abFingerPanel.querySelectorAll('[data-finger]').forEach(btn => {
+      btn.classList.toggle('active', activeTool === 'finger' && btn.dataset.finger === currentFingerNumber);
+    });
+  }
+  if (abAccidentalPanel) {
+    abAccidentalPanel.querySelectorAll('[data-acc]').forEach(btn => {
+      btn.classList.toggle('active', activeTool === 'accidental' && btn.dataset.acc === currentAccidentalType);
+    });
+  }
   updateAbBar();
 }
 
 function updateAbBar() {
   if (!abColorSizePanel) return;
 
-  const isPen    = activeTool === 'redPen';
-  const isMarker = activeTool === 'marker';
-  const isEraser = activeTool === 'eraser';
-  const isText   = activeTool === 'textStamp';
-  const isColorTool = isPen || isMarker;
-  const isSizeTool = isColorTool || isEraser;
+  const isPen        = activeTool === 'redPen';
+  const isMarker     = activeTool === 'marker';
+  const isEraser     = activeTool === 'eraser';
+  const isText       = activeTool === 'textStamp';
+  const isAccidental = activeTool === 'accidental';
+  const isBowing     = activeTool === 'bowing';
+  const isFinger     = activeTool === 'finger';
+  const isSlur       = activeTool === 'slur';
+  const isColorTool  = isPen || isMarker || isAccidental || isBowing || isFinger || isSlur;
+  const isSizeTool   = isColorTool || isEraser;
+  const hasSubPanel  = isAccidental || isFinger || isBowing || isSlur;
 
   // カラー/サイズパネルの表示切替
   abColorSizePanel.classList.toggle('visible', isSizeTool);
   abColorSizePanel.classList.toggle('size-only', isEraser);
+  abColorSizePanel.classList.toggle('color-only', isAccidental || isBowing || isFinger || isSlur);
+  abColorSizePanel.classList.toggle('has-stamp-size', isAccidental || isBowing || isFinger);
+  const abStampSizeSlider = document.getElementById('abStampSizeSlider');
+  const abStampSizePct    = document.getElementById('abStampSizePct');
+  if (abStampSizeSlider && (isAccidental || isBowing || isFinger)) {
+    const pct = Math.round(stampSizeMultiplier * 100);
+    abStampSizeSlider.value = pct;
+    if (abStampSizePct) abStampSizePct.textContent = pct + '%';
+  }
+
+  // ツール選択中はサブパネルを常に表示
+  if (abAccidentalPanel) abAccidentalPanel.hidden = !isAccidental;
+  if (abFingerPanel)     abFingerPanel.hidden     = !isFinger;
+  if (abBowSlurPanel)    abBowSlurPanel.hidden     = !(isBowing || isSlur);
+
+  // アクティブなツールボタンの位置にパネルを揃える
+  if (isSizeTool) {
+    if (hasSubPanel) {
+      // サブパネルの下にカラーパレットを配置
+      const subPanel = isAccidental ? abAccidentalPanel : isFinger ? abFingerPanel : abBowSlurPanel;
+      requestAnimationFrame(() => {
+        if (!subPanel || subPanel.hidden) return;
+        const strip = abColorSizePanel.offsetParent;
+        if (!strip) return;
+        const stripRect = strip.getBoundingClientRect();
+        const panelRect = subPanel.getBoundingClientRect();
+        abColorSizePanel.style.top  = Math.round(panelRect.bottom - stripRect.top + 6) + 'px';
+        abColorSizePanel.style.left = Math.round(panelRect.left - stripRect.left) + 'px';
+      });
+    } else {
+      abColorSizePanel.style.left = '';
+      const activeBtn = isPen ? abPenBtn : isMarker ? abMarkerBtn : isEraser ? abEraserBtn : null;
+      if (activeBtn) abColorSizePanel.style.top = activeBtn.offsetTop + 'px';
+    }
+  }
 
   // ペン・マーカー: 選択色 or グレー
   if (abPenBtn) {
@@ -1849,12 +1937,102 @@ function setActiveTool(toolName) {
   if (toolName === 'redPen' || toolName === 'marker') {
     lastPenTool = toolName;
   }
+  if (toolName !== 'slur') {
+    if (slurState) {
+      slurState = null;
+      const key = getAnnotationKey();
+      const lc = key ? liveAnnotationCanvases.get(key) : null;
+      if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
+    }
+    if (selectedSlur !== null) {
+      selectedSlur = null;
+      const key = getAnnotationKey();
+      const data = key ? annotationStrokes.get(key) : null;
+      if (annotationCanvas && annotationContext && data && data.ops.length > 0) {
+        annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+        replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+      }
+    }
+  }
   activeTool = toolName;
   applyActiveToolButtonState();
   if (toolName !== 'eraser') hideEraserCursor();
 }
 
+function clearActiveTool() {
+  activeTool = null;
+  slurState = null;
+  slurBodyDrag = null;
+  slurEndpointDrag = null;
+  selectedSlur = null;
+  applyActiveToolButtonState();
+  hideEraserCursor();
+  // close all popup panels
+  if (abBowSlurPanel) abBowSlurPanel.hidden = true;
+  if (abFingerPanel) abFingerPanel.hidden = true;
+  if (abAccidentalPanel) abAccidentalPanel.hidden = true;
+}
+
+function clearSelectedStamp() {
+  if (!selectedStamp) return;
+  const lc = selectedStamp.key ? liveAnnotationCanvases.get(selectedStamp.key) : null;
+  if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
+  selectedStamp = null;
+}
+
+function deleteSelectedStamp() {
+  if (!selectedStamp) return;
+  const { key, index } = selectedStamp;
+  const data = key ? annotationStrokes.get(key) : null;
+  if (data && data.ops[index]) {
+    data.ops.splice(index, 1);
+    if (annotationCanvas && annotationContext) {
+      annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+      if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+    }
+    persistCurrentAnnotation();
+  }
+  clearSelectedStamp();
+}
+
+function deleteSelectedSlur() {
+  if (!selectedSlur) return;
+  const { key, index } = selectedSlur;
+  const data = key ? annotationStrokes.get(key) : null;
+  if (data && data.ops[index]) {
+    data.ops.splice(index, 1);
+    if (annotationCanvas && annotationContext) {
+      annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+      if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+    }
+    persistCurrentAnnotation();
+  }
+  selectedSlur = null;
+}
+
+function drawSelectedStampHighlight(op, canvas) {
+  const key = getAnnotationKey();
+  const lc = key ? liveAnnotationCanvases.get(key) : null;
+  if (!lc || !op) return;
+  const lctx = lc.getContext('2d');
+  lctx.clearRect(0, 0, lc.width, lc.height);
+  const sx = op.x * lc.width, sy = op.y * lc.height;
+  const dpr = canvas._imgDpr || 1;
+  const fontSize = getStampFontSize(canvas, 1, op.size) / dpr;
+  const halfSz = fontSize / 2 + 10;
+  lctx.save();
+  lctx.strokeStyle = '#2979ff';
+  lctx.lineWidth = 2;
+  lctx.setLineDash([4, 4]);
+  lctx.beginPath();
+  lctx.roundRect(sx - halfSz, sy - halfSz, halfSz * 2, halfSz * 2, 4);
+  lctx.stroke();
+  lctx.setLineDash([]);
+  lctx.restore();
+}
+
 function setActiveAnnotationCanvas(canvas, pageNumber) {
+  if (canvas !== annotationCanvas) clearSelectedStamp();
   annotationCanvas = canvas;
   annotationContext = canvas.getContext('2d');
   activeAnnotationPage = pageNumber;
@@ -1927,8 +2105,9 @@ function drawMusicSymbolText(char, point, fontSize, color) {
   annotationContext.lineWidth = Math.max(2, fontSize * 0.08);
   annotationContext.strokeStyle = 'rgba(255, 255, 255, 0.88)';
   annotationContext.fillStyle = color;
-  annotationContext.strokeText(char, point.x, point.y);
-  annotationContext.fillText(char, point.x, point.y);
+  const y = point.y - fontSize * 0.08;
+  annotationContext.strokeText(char, point.x, y);
+  annotationContext.fillText(char, point.x, y);
 }
 
 function drawSharpSymbol(cx, cy, size, color) {
@@ -2277,29 +2456,225 @@ function drawDot(point) {
   annotationContext.restore();
 }
 
+// ── Slur / stamp-drag helpers ─────────────────────────────────────────────────
+
+function findNearbyStampOp(point, canvas, key) {
+  const data = annotationStrokes.get(key);
+  if (!data) return null;
+  const threshold = Math.max(20, canvas.width * 0.035);
+  for (let i = data.ops.length - 1; i >= 0; i--) {
+    const op = data.ops[i];
+    if (op.op !== 'stamp') continue;
+    const sp = denormPt([op.x, op.y], canvas);
+    const dx = sp.x - point.x, dy = sp.y - point.y;
+    if (dx * dx + dy * dy <= threshold * threshold) return { index: i };
+  }
+  return null;
+}
+
+function findNearbySlurAnchor(point, canvas, key) {
+  const data = annotationStrokes.get(key);
+  if (!data) return null;
+  const threshold = Math.max(18, canvas.width * 0.03);
+  for (let i = data.ops.length - 1; i >= 0; i--) {
+    const op = data.ops[i];
+    if (op.op !== 'slur') continue;
+    // Bezier midpoint B(0.5) = 0.25*P0 + 0.5*Pc + 0.25*P2
+    const ax = (0.25 * op.x1 + 0.5 * op.cx + 0.25 * op.x2) * canvas.width;
+    const ay = (0.25 * op.y1 + 0.5 * op.cy + 0.25 * op.y2) * canvas.height;
+    const dx = ax - point.x, dy = ay - point.y;
+    if (dx * dx + dy * dy <= threshold * threshold) return { index: i };
+  }
+  return null;
+}
+
+function findNearbySlurBody(point, canvas, key) {
+  const data = annotationStrokes.get(key);
+  if (!data) return null;
+  const threshold = Math.max(16, canvas.width * 0.02);
+  for (let i = data.ops.length - 1; i >= 0; i--) {
+    const op = data.ops[i];
+    if (op.op !== 'slur') continue;
+    const x1 = op.x1 * canvas.width, y1 = op.y1 * canvas.height;
+    const x2 = op.x2 * canvas.width, y2 = op.y2 * canvas.height;
+    const cx = op.cx * canvas.width, cy = op.cy * canvas.height;
+    const N = 24;
+    for (let j = 0; j <= N; j++) {
+      const t = j / N;
+      const bx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
+      const by = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * cy + t * t * y2;
+      const dx = bx - point.x, dy = by - point.y;
+      if (dx * dx + dy * dy <= threshold * threshold) return { index: i };
+    }
+  }
+  return null;
+}
+
+function findNearbySlurEndpoint(point, canvas, key) {
+  const data = annotationStrokes.get(key);
+  if (!data) return null;
+  const threshold = Math.max(16, canvas.width * 0.025);
+  for (let i = data.ops.length - 1; i >= 0; i--) {
+    const op = data.ops[i];
+    if (op.op !== 'slur') continue;
+    const x2 = op.x2 * canvas.width, y2 = op.y2 * canvas.height;
+    if ((x2 - point.x) ** 2 + (y2 - point.y) ** 2 <= threshold ** 2) return { index: i, whichEnd: 'p2' };
+    const x1 = op.x1 * canvas.width, y1 = op.y1 * canvas.height;
+    if ((x1 - point.x) ** 2 + (y1 - point.y) ** 2 <= threshold ** 2) return { index: i, whichEnd: 'p1' };
+  }
+  return null;
+}
+
+function drawSlurLivePreview(lctx, lc, x1n, y1n, x2n, y2n, cxn, cyn, color) {
+  lctx.clearRect(0, 0, lc.width, lc.height);
+  const W = lc.width, H = lc.height;
+  const x1 = x1n * W, y1 = y1n * H;
+  lctx.save();
+  lctx.strokeStyle = color || '#111111';
+  lctx.lineWidth = 2;
+  lctx.lineCap = 'round';
+  lctx.fillStyle = color || '#111111';
+  if (x2n !== null) {
+    const x2 = x2n * W, y2 = y2n * H, cx = cxn * W, cy = cyn * H;
+    lctx.setLineDash([5, 5]);
+    lctx.beginPath(); lctx.moveTo(x1, y1); lctx.quadraticCurveTo(cx, cy, x2, y2); lctx.stroke();
+    lctx.setLineDash([]);
+    lctx.beginPath(); lctx.arc(x2, y2, 4, 0, Math.PI * 2); lctx.fill();
+    // Anchor circle at bezier midpoint
+    const ax = 0.25 * x1 + 0.5 * cx + 0.25 * x2;
+    const ay = 0.25 * y1 + 0.5 * cy + 0.25 * y2;
+    lctx.lineWidth = 1.5;
+    lctx.beginPath(); lctx.arc(ax, ay, 6, 0, Math.PI * 2); lctx.stroke();
+  }
+  lctx.setLineDash([]);
+  lctx.beginPath(); lctx.arc(x1, y1, 4, 0, Math.PI * 2); lctx.fill();
+  lctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function beginDrawing(event) {
-  if (!annotationContext || !annotationCanvas) {
-    return;
-  }
+  if (!annotationContext || !annotationCanvas) return;
+  if (event.button !== undefined && event.button !== 0) return;
+  if (typeof event.preventDefault === 'function') event.preventDefault();
 
-  if (event.button !== undefined && event.button !== 0) {
-    return;
-  }
-
-  if (typeof event.preventDefault === 'function') {
-    event.preventDefault();
-  }
   lastAnnotationPoint = getCanvasPoint(event, annotationCanvas);
+  if (!activeTool) return;
+  const pt = lastAnnotationPoint;
+  const key = getAnnotationKey();
 
+  // --- Slur tool ---
+  if (activeTool === 'slur') {
+    if (!slurState) {
+      // 1. Check endpoint hit (near P1 or P2 → move endpoint)
+      const endpointHit = key ? findNearbySlurEndpoint(pt, annotationCanvas, key) : null;
+      if (endpointHit) {
+        slurEndpointDrag = { key, index: endpointHit.index, canvas: annotationCanvas, whichEnd: endpointHit.whichEnd };
+        selectedSlur = { key, index: endpointHit.index };
+        annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+        const data = annotationStrokes.get(key);
+        if (data && data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+        return;
+      }
+      // 2. Check anchor hit (near midpoint → bend control point) — only when already selected
+      const isThisSlurSelected = selectedSlur !== null && selectedSlur.key === key;
+      if (isThisSlurSelected) {
+        const anchorHit = findNearbySlurAnchor(pt, annotationCanvas, key);
+        if (anchorHit && anchorHit.index === selectedSlur.index) {
+          slurAnchorDrag = { key, index: anchorHit.index, canvas: annotationCanvas };
+          annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+          const data = annotationStrokes.get(key);
+          if (data && data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+          return;
+        }
+      }
+      // 3. Check body hit (near curve body → move entire slur)
+      const bodyHit = key ? findNearbySlurBody(pt, annotationCanvas, key) : null;
+      if (bodyHit) {
+        const data = annotationStrokes.get(key);
+        const op = data ? data.ops[bodyHit.index] : null;
+        if (op) {
+          slurBodyDrag = { key, index: bodyHit.index, canvas: annotationCanvas, startX: pt.x, startY: pt.y, origOp: { x1: op.x1, y1: op.y1, x2: op.x2, y2: op.y2, cx: op.cx, cy: op.cy } };
+          selectedSlur = { key, index: bodyHit.index };
+          annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+          if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+        }
+        return;
+      }
+      // 3. No hit — deselect and start new slur
+      selectedSlur = null;
+      slurState = { x1: pt.x / annotationCanvas.width, y1: pt.y / annotationCanvas.height };
+      annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+      const existingData = annotationStrokes.get(key);
+      if (existingData && existingData.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, existingData.ops);
+      const lc = key ? liveAnnotationCanvases.get(key) : null;
+      if (lc) {
+        drawSlurLivePreview(lc.getContext('2d'), lc, slurState.x1, slurState.y1, null, null, 0, 0, '#111111');
+      }
+    } else {
+      // Second click: commit slur
+      const x1 = slurState.x1, y1 = slurState.y1;
+      const x2 = pt.x / annotationCanvas.width, y2 = pt.y / annotationCanvas.height;
+      const dx = (x2 - x1) * annotationCanvas.width, dy = (y2 - y1) * annotationCanvas.height;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2 - (dist * 0.35) / annotationCanvas.height;
+      pushAnnotationOp({ op: 'slur', x1, y1, x2, y2, cx, cy, c: '#111111', w: 2.0 });
+      slurState = null;
+      const newIndex = (annotationStrokes.get(key)?.ops.length ?? 1) - 1;
+      selectedSlur = { key, index: newIndex };
+      const lc = key ? liveAnnotationCanvases.get(key) : null;
+      if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
+      annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+      const data = annotationStrokes.get(key);
+      if (data && data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+      persistCurrentAnnotation();
+    }
+    return;
+  }
+
+  // --- Eraser taps on a stamp: delete that stamp op ---
+  if (activeTool === 'eraser' && key) {
+    const hit = findNearbyStampOp(pt, annotationCanvas, key);
+    if (hit) {
+      const data = annotationStrokes.get(key);
+      if (data) {
+        data.ops.splice(hit.index, 1);
+        annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+        if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+        persistCurrentAnnotation();
+      }
+      return;
+    }
+  }
+
+  // --- Stamp tools ---
   if (isStampTool()) {
-    if (activeTool !== 'finger' && activeTool !== 'bowing') {
+    const hit = key ? findNearbyStampOp(pt, annotationCanvas, key) : null;
+    if (hit) {
+      const op = annotationStrokes.get(key).ops[hit.index];
+      const sp = denormPt([op.x, op.y], annotationCanvas);
+      stampDragState = { key, index: hit.index, canvas: annotationCanvas, offX: sp.x - pt.x, offY: sp.y - pt.y };
+      selectedStamp = { key, index: hit.index };
+      return;
+    }
+    // No hit: clear selection and place new stamp if applicable
+    clearSelectedStamp();
+    if (activeTool === 'accidental') {
+      placeAnnotationStamp(currentAccidentalType);
+    } else if (activeTool === 'finger') {
+      placeAnnotationStamp(currentFingerNumber);
+    } else if (activeTool === 'bowing') {
+      placeAnnotationStamp(currentBowType);
+    } else {
       placeAnnotationStamp();
     }
     return;
   }
 
+  // --- Draw tools ---
   isDrawing = true;
-  lastPoint = lastAnnotationPoint;
+  lastPoint = pt;
   const tool = getActiveToolConfig();
   currentStroke = {
     op: 'stroke',
@@ -2313,20 +2688,178 @@ function beginDrawing(event) {
 }
 
 function drawLine(event) {
-  if (!isDrawing || !annotationContext || !annotationCanvas || !lastPoint) {
+  // --- Slur anchor drag (bend control point) ---
+  // --- Slur endpoint drag (move P1 or P2) ---
+  if (slurEndpointDrag) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    const { key, index, canvas, whichEnd } = slurEndpointDrag;
+    const data = annotationStrokes.get(key);
+    if (!data) return;
+    const op = data.ops[index];
+    const pt = getCanvasPoint(event, canvas);
+    if (whichEnd === 'p1') {
+      op.x1 = pt.x / canvas.width;
+      op.y1 = pt.y / canvas.height;
+    } else {
+      op.x2 = pt.x / canvas.width;
+      op.y2 = pt.y / canvas.height;
+    }
+    const ctx = annotationContext;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    replayAnnotationOps(ctx, canvas, data.ops);
     return;
   }
 
-  if (typeof event.preventDefault === 'function') {
-    event.preventDefault();
+  if (slurAnchorDrag) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    const { key, index, canvas } = slurAnchorDrag;
+    const data = annotationStrokes.get(key);
+    if (!data) return;
+    const op = data.ops[index];
+    const pt = getCanvasPoint(event, canvas);
+    // Convert dragged anchor position back to control point
+    // B(0.5) = 0.25*P0 + 0.5*Pc + 0.25*P2  →  Pc = 2*anchor - 0.5*(P0+P2)
+    op.cx = 2 * (pt.x / canvas.width) - 0.5 * (op.x1 + op.x2);
+    op.cy = 2 * (pt.y / canvas.height) - 0.5 * (op.y1 + op.y2);
+    const ctx = annotationContext;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    replayAnnotationOps(ctx, canvas, data.ops);
+    return;
   }
+
+  // --- Slur body drag (move entire slur) ---
+  if (slurBodyDrag) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    const { key, index, canvas, startX, startY, origOp } = slurBodyDrag;
+    const data = annotationStrokes.get(key);
+    if (!data) return;
+    const op = data.ops[index];
+    const pt = getCanvasPoint(event, canvas);
+    const dx = (pt.x - startX) / canvas.width;
+    const dy = (pt.y - startY) / canvas.height;
+    op.x1 = origOp.x1 + dx;
+    op.y1 = origOp.y1 + dy;
+    op.x2 = origOp.x2 + dx;
+    op.y2 = origOp.y2 + dy;
+    op.cx = origOp.cx + dx;
+    op.cy = origOp.cy + dy;
+    const ctx = annotationContext;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    replayAnnotationOps(ctx, canvas, data.ops);
+    return;
+  }
+
+  // --- Stamp drag ---
+  if (stampDragState) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    const { key, index, canvas, offX, offY } = stampDragState;
+    const data = annotationStrokes.get(key);
+    if (!data) return;
+    const op = data.ops[index];
+    const pt = getCanvasPoint(event, canvas);
+    op.x = Math.max(0, Math.min(1, (pt.x + offX) / canvas.width));
+    op.y = Math.max(0, Math.min(1, (pt.y + offY) / canvas.height));
+    const ctx = annotationContext;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    replayAnnotationOps(ctx, canvas, data.ops);
+    // Draw selection highlight on live canvas
+    const lc = key ? liveAnnotationCanvases.get(key) : null;
+    if (lc) {
+      const lctx = lc.getContext('2d');
+      lctx.clearRect(0, 0, lc.width, lc.height);
+      const sx = op.x * lc.width, sy = op.y * lc.height;
+      const dpr = canvas._imgDpr || 1;
+      const fontSize = getStampFontSize(canvas, 1, op.size) / dpr;
+      const halfSz = fontSize / 2 + 10;
+      lctx.save();
+      lctx.strokeStyle = '#2979ff';
+      lctx.lineWidth = 2;
+      lctx.setLineDash([4, 4]);
+      lctx.beginPath();
+      lctx.roundRect(sx - halfSz, sy - halfSz, halfSz * 2, halfSz * 2, 4);
+      lctx.stroke();
+      lctx.setLineDash([]);
+      lctx.restore();
+    }
+    return;
+  }
+
+  // --- Slur preview ---
+  if (activeTool === 'slur' && slurState && annotationCanvas) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    const key = getAnnotationKey();
+    const lc = key ? liveAnnotationCanvases.get(key) : null;
+    if (lc) {
+      const pt = getCanvasPoint(event, annotationCanvas);
+      const x2 = pt.x / annotationCanvas.width, y2 = pt.y / annotationCanvas.height;
+      const dx = (x2 - slurState.x1) * annotationCanvas.width;
+      const dy = (y2 - slurState.y1) * annotationCanvas.height;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const cx = (slurState.x1 + x2) / 2;
+      const cy = (slurState.y1 + y2) / 2 - (dist * 0.35) / annotationCanvas.height;
+      drawSlurLivePreview(lc.getContext('2d'), lc, slurState.x1, slurState.y1, x2, y2, cx, cy, '#111111');
+    }
+    return;
+  }
+
+  // --- Normal drawing ---
+  if (!isDrawing || !annotationContext || !annotationCanvas || !lastPoint) return;
+  if (typeof event.preventDefault === 'function') event.preventDefault();
+
   const nextPoint = getCanvasPoint(event, annotationCanvas);
   lastAnnotationPoint = nextPoint;
   const tool = getActiveToolConfig();
+  const drawScale = getAnnotationDrawScale();
+
+  // Eraser stroke: check if brush passes over a stamp or slur op and delete it
+  if (tool.mode === 'erase') {
+    const eraseKey = getAnnotationKey();
+    if (eraseKey) {
+      const stampHit = findNearbyStampOp(nextPoint, annotationCanvas, eraseKey);
+      const slurHit = !stampHit ? findNearbySlurBody(nextPoint, annotationCanvas, eraseKey) : null;
+      const hit = stampHit || slurHit;
+      if (hit) {
+        const data = annotationStrokes.get(eraseKey);
+        if (data) {
+          data.ops.splice(hit.index, 1);
+          // If the deleted slur was selected, clear selection
+          if (slurHit && selectedSlur && selectedSlur.key === eraseKey && selectedSlur.index === hit.index) {
+            selectedSlur = null;
+          }
+          annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+          if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+          // Re-draw the in-progress erase stroke so far
+          if (currentStroke && currentStroke.pts.length > 0) {
+            const pts = currentStroke.pts.map(p => denormPt(p, annotationCanvas));
+            annotationContext.save();
+            annotationContext.globalCompositeOperation = 'destination-out';
+            annotationContext.strokeStyle = 'rgba(0,0,0,1)';
+            annotationContext.lineWidth = tool.width * drawScale;
+            annotationContext.lineCap = 'round';
+            annotationContext.lineJoin = 'round';
+            annotationContext.beginPath();
+            annotationContext.arc(pts[0].x, pts[0].y, Math.max(1, (tool.width / 2) * drawScale), 0, Math.PI * 2);
+            annotationContext.fill();
+            if (pts.length > 1) {
+              annotationContext.beginPath();
+              annotationContext.moveTo(pts[0].x, pts[0].y);
+              for (let i = 1; i < pts.length; i++) annotationContext.lineTo(pts[i].x, pts[i].y);
+              annotationContext.stroke();
+            }
+            annotationContext.restore();
+          }
+        }
+        if (currentStroke) currentStroke.pts.push(normPt(nextPoint, annotationCanvas));
+        lastPoint = nextPoint;
+        return;
+      }
+    }
+  }
+
   annotationContext.save();
   annotationContext.globalCompositeOperation = tool.mode === 'erase' ? 'destination-out' : 'source-over';
   annotationContext.strokeStyle = tool.mode === 'erase' ? 'rgba(0, 0, 0, 1)' : hexToRgba(tool.color, tool.alpha);
-  annotationContext.lineWidth = tool.width * getAnnotationDrawScale();
+  annotationContext.lineWidth = tool.width * drawScale;
   annotationContext.lineCap = tool.mode === 'erase' ? 'round' : 'butt';
   annotationContext.lineJoin = tool.mode === 'erase' ? 'round' : 'miter';
   annotationContext.miterLimit = 2;
@@ -2340,10 +2873,34 @@ function drawLine(event) {
 }
 
 function stopDrawing() {
-  if (!isDrawing) {
+  if (slurEndpointDrag) {
+    persistCurrentAnnotation();
+    selectedSlur = { key: slurEndpointDrag.key, index: slurEndpointDrag.index };
+    slurEndpointDrag = null;
     return;
   }
-
+  if (slurAnchorDrag) {
+    persistCurrentAnnotation();
+    slurAnchorDrag = null;
+    return;
+  }
+  if (slurBodyDrag) {
+    persistCurrentAnnotation();
+    selectedSlur = { key: slurBodyDrag.key, index: slurBodyDrag.index };
+    slurBodyDrag = null;
+    return;
+  }
+  if (stampDragState) {
+    const { key, index } = stampDragState;
+    const data = key ? annotationStrokes.get(key) : null;
+    const op = data ? data.ops[index] : null;
+    persistCurrentAnnotation();
+    selectedStamp = { key, index };
+    if (op) drawSelectedStampHighlight(op, stampDragState.canvas);
+    stampDragState = null;
+    return;
+  }
+  if (!isDrawing) return;
   isDrawing = false;
   lastPoint = null;
   if (currentStroke && currentStroke.pts.length > 0) {
@@ -2557,13 +3114,14 @@ function updateFullscreenButtonState() {
   }
 
   fullscreenToggleButton.classList.toggle('active', isReaderFocusMode);
-  fullscreenToggleButton.textContent = isReaderFocusMode ? '通常表示' : '全画面';
+  fullscreenToggleButton.setAttribute('aria-label', isReaderFocusMode ? '通常表示' : '全画面');
 }
 
 function setReaderFocusMode(nextValue) {
   isReaderFocusMode = Boolean(nextValue);
 
   if (isReaderFocusMode) {
+    clearActiveTool();
     setFloatingWindowVisible(tunerPanel, tunerWindowToggle, false, 'チューナー');
     reader.classList.add('focus-mode');
   } else {
@@ -2682,6 +3240,7 @@ function saveItemMetaToDb(item) {
     folderIds: item.folderIds || [item.folderId || 'inbox'],
     folderId: item.folderId || (item.folderIds || ['inbox'])[0],
     lastPage: item.lastPage || 1,
+    bookmarks: item.bookmarks || [],
     driveFileId: item.driveFileId || null,
     fileName: item.file?.name || `${item.title}.pdf`,
     fileLastModified: item.file?.lastModified || 0,
@@ -2726,6 +3285,7 @@ async function loadLibraryFromDb() {
         composer: meta.composer || '',
         type: meta.type || 'pdf',
         lastPage: meta.lastPage || 1,
+        bookmarks: meta.bookmarks || [],
         folderIds: meta.folderIds || ['inbox'],
         folderId: meta.folderId || (meta.folderIds || ['inbox'])[0],
         driveFileId: meta.driveFileId || null,
@@ -2894,12 +3454,61 @@ function replayStampOp(ctx, canvas, op) {
   lastAnnotationPoint = savedPoint;
 }
 
+function replaySlurOp(ctx, canvas, op, opIndex = -1) {
+  const scale = canvas._imgDpr || 1;
+  const x1 = op.x1 * canvas.width, y1 = op.y1 * canvas.height;
+  const x2 = op.x2 * canvas.width, y2 = op.y2 * canvas.height;
+  const cx = op.cx * canvas.width, cy = op.cy * canvas.height;
+  const color = op.c || '#111111';
+
+  const minW = 2.0 * scale;
+  const maxW = 3.2 * scale;
+  const N = 30;
+  const bx = (t) => (1-t)*(1-t)*x1 + 2*(1-t)*t*cx + t*t*x2;
+  const by = (t) => (1-t)*(1-t)*y1 + 2*(1-t)*t*cy + t*t*y2;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+
+  for (let i = 0; i < N; i++) {
+    const t0 = i / N, t1 = (i + 1) / N, tm = (t0 + t1) / 2;
+    ctx.lineWidth = minW + (maxW - minW) * Math.sin(Math.PI * tm);
+    ctx.beginPath();
+    ctx.moveTo(bx(t0), by(t0));
+    ctx.lineTo(bx(t1), by(t1));
+    ctx.stroke();
+  }
+
+  // Handles — only for the currently selected slur when slur tool is active
+  const isSelected = activeTool === 'slur' && selectedSlur !== null && selectedSlur.index === opIndex;
+  if (isSelected) {
+    const handleR = Math.max(5, canvas.width * 0.012);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, scale * 1.5);
+    // Midpoint anchor (bend control) — dashed circle
+    const ax = 0.25 * x1 + 0.5 * cx + 0.25 * x2;
+    const ay = 0.25 * y1 + 0.5 * cy + 0.25 * y2;
+    ctx.setLineDash([Math.max(2, scale * 2), Math.max(2, scale * 2)]);
+    ctx.beginPath(); ctx.arc(ax, ay, handleR, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    // Endpoint circles (P1, P2) — filled small circles
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x1, y1, Math.max(4, canvas.width * 0.008), 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x2, y2, Math.max(4, canvas.width * 0.008), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function replayAnnotationOps(ctx, canvas, ops) {
   ctx.save();
   try {
-    for (const op of ops) {
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
       if (op.op === 'stroke') replayStrokeOp(ctx, canvas, op);
       else if (op.op === 'stamp') replayStampOp(ctx, canvas, op);
+      else if (op.op === 'slur') replaySlurOp(ctx, canvas, op, i);
     }
   } finally {
     ctx.restore();
@@ -3026,7 +3635,7 @@ async function playMetronomeClick(level = 1, highAccent = false) {
 }
 
 function updateMetronomeBeatIndicator(activeBeat = 0) {
-  if (!metronomeBeatIndicator && !focusMetronomeBeatIndicator) {
+  if (!metronomeBeatIndicator) {
     return;
   }
   const beatsPerMeasure = getMetronomeBeatsPerMeasure();
@@ -3035,12 +3644,7 @@ function updateMetronomeBeatIndicator(activeBeat = 0) {
   for (let i = 0; i < beatsPerMeasure; i += 1) {
     text += i === normalized ? '●' : '○';
   }
-  if (metronomeBeatIndicator) {
-    metronomeBeatIndicator.textContent = text;
-  }
-  if (focusMetronomeBeatIndicator) {
-    focusMetronomeBeatIndicator.textContent = text;
-  }
+  metronomeBeatIndicator.textContent = text;
 }
 
 function setMetronomeBpm(nextBpm) {
@@ -3107,10 +3711,72 @@ function setReaderLayoutMode(mode) {
   }
 }
 
+const _panelListeners = new WeakMap();
+
+function animatePanelToggle(panel, visible) {
+  // Cancel any pending transitionend from a previous interrupted animation
+  const old = _panelListeners.get(panel);
+  if (old) {
+    panel.removeEventListener('transitionend', old);
+    _panelListeners.delete(panel);
+  }
+  // Reset any leftover inline styles so scrollHeight is accurate
+  panel.style.transition = '';
+  panel.style.height = '';
+  panel.style.overflow = '';
+
+  if (visible) {
+    panel.hidden = false;
+    panel.style.overflow = 'hidden';
+    panel.style.height = '0px';
+    void panel.offsetHeight;
+    const target = panel.scrollHeight;
+    panel.style.transition = 'height 0.22s cubic-bezier(0.2, 0, 0, 1)';
+    panel.style.height = target + 'px';
+    const cb = () => {
+      _panelListeners.delete(panel);
+      panel.style.height = 'auto';
+      panel.style.overflow = '';
+      panel.style.transition = '';
+    };
+    _panelListeners.set(panel, cb);
+    panel.addEventListener('transitionend', cb, { once: true });
+  } else {
+    const start = panel.scrollHeight;
+    if (start === 0) {
+      panel.hidden = true;
+      return;
+    }
+    panel.style.overflow = 'hidden';
+    panel.style.height = start + 'px';
+    void panel.offsetHeight;
+    panel.style.transition = 'height 0.18s cubic-bezier(0.4, 0, 1, 1)';
+    panel.style.height = '0px';
+    const cb = () => {
+      _panelListeners.delete(panel);
+      panel.hidden = true;
+      panel.style.height = '';
+      panel.style.overflow = '';
+      panel.style.transition = '';
+    };
+    _panelListeners.set(panel, cb);
+    panel.addEventListener('transitionend', cb, { once: true });
+  }
+}
+
 function setFloatingWindowVisible(panel, button, visible, label) {
-  panel.hidden = !visible;
-  button.classList.toggle('active', visible);
-  button.textContent = visible ? `${label}を閉じる` : label;
+  const arrow = button.querySelector && button.querySelector('.tool-section-arrow');
+  if (arrow) {
+    button.setAttribute('aria-expanded', String(visible));
+    arrow.textContent = visible ? '▼' : '▶';
+    // 既に目的の状態なら不要なアニメーション（と stale listener）を避ける
+    if (visible === !panel.hidden) return;
+    animatePanelToggle(panel, visible);
+  } else {
+    panel.hidden = !visible;
+    button.classList.toggle('active', visible);
+    button.textContent = visible ? `${label}を閉じる` : label;
+  }
 }
 
 function toggleMetronomeWindow() {
@@ -3725,9 +4391,15 @@ function setupAnnotationCanvas() {
       drawCanvas.dataset.page = String(pageNumber);
     }
 
+    // Live overlay canvas for slur/drag previews (pointer-events:none)
+    const liveCanvas = document.createElement('canvas');
+    liveCanvas.className = 'live-annotation-canvas';
+    liveCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:5;';
+
     cell.innerHTML = '';
     layer.appendChild(baseElement);
     layer.appendChild(drawCanvas);
+    layer.appendChild(liveCanvas);
     cell.appendChild(layer);
 
     const initializeCanvas = () => {
@@ -3741,6 +4413,13 @@ function setupAnnotationCanvas() {
         cssWidth = Math.max(1, Math.round(baseElement.clientWidth));
         cssHeight = Math.max(1, Math.round(baseElement.clientHeight));
       }
+
+      // Live canvas is always CSS-pixel sized (no DPR needed for previews)
+      liveCanvas.width = Math.max(1, cssWidth);
+      liveCanvas.height = Math.max(1, cssHeight);
+      liveCanvas.style.width = `${cssWidth}px`;
+      liveCanvas.style.height = `${cssHeight}px`;
+      if (cacheKey) liveAnnotationCanvases.set(cacheKey, liveCanvas);
 
       if (cachedCanvas) {
         // ズームが変わってもピクセルデータは維持し、CSS表示サイズだけ更新する
@@ -3807,6 +4486,7 @@ function clearCurrentAnnotation() {
     return;
   }
 
+  clearSelectedStamp();
   annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
   const key = getAnnotationKey(activeAnnotationPage);
   if (key) {
@@ -4219,16 +4899,37 @@ function closeReader() {
   persistCurrentAnnotation();
   isDrawing = false;
   lastPoint = null;
+  slurState = null;
+  slurAnchorDrag = null;
+  slurBodyDrag = null;
+  slurEndpointDrag = null;
+  selectedSlur = null;
+  stampDragState = null;
+  clearSelectedStamp();
   stopMetronome();
   stopTunerTone();
   stopMicTuner();
-  setFloatingWindowVisible(tunerPanel, tunerWindowToggle, false, 'チューナー');
+  // Immediately collapse panels without animation (reader is about to hide anyway)
+  [tunerPanel, metronomePanel].forEach((p) => {
+    if (!p) return;
+    const old = _panelListeners.get(p);
+    if (old) { p.removeEventListener('transitionend', old); _panelListeners.delete(p); }
+    p.style.height = ''; p.style.overflow = ''; p.style.transition = '';
+    p.hidden = true;
+  });
+  [tunerWindowToggle, metronomeWindowToggle].forEach((btn) => {
+    if (!btn) return;
+    btn.setAttribute('aria-expanded', 'false');
+    const arrow = btn.querySelector('.tool-section-arrow');
+    if (arrow) arrow.textContent = '▶';
+  });
   setReaderFocusMode(false);
   reader.style.display = 'none';
   reader.setAttribute('aria-hidden', 'true');
   setReaderPageLock(false);
   closePreviewSheet();
   renderReaderTabs();
+  renderBookmarkSlots();
 }
 
 async function renderPdfThumbnail(item, thumbEl) {
@@ -4631,6 +5332,112 @@ async function moveReaderPage(offset) {
   });
 }
 
+// ── しおり (Bookmark) ──────────────────────────────────────────────────────────
+
+function renderBookmarkSlots() {
+  const bookmarks = activeItem ? (activeItem.bookmarks || []) : [];
+  abBookmarkSlots.forEach((btn, i) => {
+    if (!btn) return;
+    const bm = bookmarks[i];
+    // Remove old del button
+    const oldDel = btn.querySelector('.bm-del');
+    if (oldDel) oldDel.remove();
+    if (bm) {
+      btn.textContent = `p.${bm.page}`;
+      btn.classList.add('filled');
+      btn.title = `しおり${i + 1}: ${bm.page}ページ`;
+      const del = document.createElement('button');
+      del.className = 'bm-del';
+      del.textContent = '×';
+      del.title = '削除';
+      del.type = 'button';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const bms = [...(activeItem.bookmarks || [])];
+        bms.splice(i, 1);
+        activeItem.bookmarks = bms;
+        saveItemMetaToDb(activeItem);
+        renderBookmarkSlots();
+      });
+      btn.appendChild(del);
+      btn.onclick = () => goToBookmarkPage(bm.page);
+    } else {
+      btn.textContent = '—';
+      btn.classList.remove('filled');
+      btn.title = `しおり${i + 1}（空き）`;
+      btn.onclick = null;
+    }
+  });
+  if (abBookmarkAdd) {
+    abBookmarkAdd.hidden = bookmarks.length >= 3;
+  }
+}
+
+async function goToBookmarkPage(page) {
+  if (!activeItem) return;
+  const viewIndex = findViewIndexByPage(readerState.viewGroups, page);
+  persistCurrentAnnotation();
+  readerState.page = Math.max(1, Math.min(viewIndex, readerState.pageCount));
+  const group = readerState.viewGroups[readerState.page - 1] || [page];
+  previewState.page = group[0];
+  activeItem.lastPage = group[0];
+  saveItemMetaToDb(activeItem);
+  await renderReaderPage();
+}
+
+function openPageJump() {
+  if (!readerPageJumpInput || !readerPageLabel || !activeItem) return;
+  const totalPages = readerState.viewGroups[readerState.pageCount - 1]?.at(-1) || readerState.pageCount;
+  readerPageJumpInput.value = getCurrentReaderAnchorPage();
+  readerPageJumpInput.max = String(totalPages);
+  readerPageLabel.hidden = true;
+  readerPageJumpInput.hidden = false;
+  readerPageJumpInput.focus();
+  readerPageJumpInput.select();
+}
+
+function closePageJump() {
+  if (!readerPageJumpInput || !readerPageLabel) return;
+  readerPageJumpInput.hidden = true;
+  readerPageLabel.hidden = false;
+}
+
+async function commitPageJump() {
+  if (!readerPageJumpInput) return;
+  const page = parseInt(readerPageJumpInput.value, 10);
+  closePageJump();
+  if (!page || page < 1 || !activeItem) return;
+  await goToBookmarkPage(page);
+}
+
+function openBookmarkForm() {
+  if (!bookmarkAddForm || !bookmarkPageInput) return;
+  bookmarkPageInput.value = activeAnnotationPage || 1;
+  bookmarkPageInput.max = readerState.pageCount
+    ? String(readerState.viewGroups[readerState.pageCount - 1]?.at(-1) || 999)
+    : '999';
+  bookmarkAddForm.hidden = false;
+  bookmarkPageInput.focus();
+  bookmarkPageInput.select();
+}
+
+function closeBookmarkForm() {
+  if (bookmarkAddForm) bookmarkAddForm.hidden = true;
+}
+
+function saveBookmark() {
+  if (!activeItem) return;
+  const page = parseInt(bookmarkPageInput.value, 10);
+  if (!page || page < 1) return;
+  const bms = [...(activeItem.bookmarks || [])];
+  if (bms.length >= 3) return;
+  bms.push({ page });
+  activeItem.bookmarks = bms;
+  saveItemMetaToDb(activeItem);
+  renderBookmarkSlots();
+  closeBookmarkForm();
+}
+
 function bindTap(button, handler) {
   if (!button) {
     return;
@@ -4662,6 +5469,14 @@ fileInput.addEventListener('change', (event) => {
 
 bindTap(readerPrevButton, () => moveReaderPage(-1));
 bindTap(readerNextButton, () => moveReaderPage(1));
+if (readerPageLabel) bindTap(readerPageLabel, openPageJump);
+if (readerPageJumpInput) {
+  readerPageJumpInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitPageJump(); }
+    if (e.key === 'Escape') closePageJump();
+  });
+  readerPageJumpInput.addEventListener('blur', commitPageJump);
+}
 bindTap(focusPrevButton, () => moveReaderPage(-1));
 bindTap(focusNextButton, () => moveReaderPage(1));
 bindTap(openReaderButton, openReaderFromPreview);
@@ -4758,6 +5573,16 @@ bindTap(clearAnnotationButton, clearCurrentAnnotation);
 bindTap(exportAnnotatedPdfButton, exportAnnotatedPdf);
 bindTap(document.getElementById('stampSizeDecButton'), () => adjustStampSize(-1));
 bindTap(document.getElementById('stampSizeIncButton'), () => adjustStampSize(1));
+(function () {
+  const slider = document.getElementById('abStampSizeSlider');
+  const pctLabel = document.getElementById('abStampSizePct');
+  if (!slider) return;
+  slider.addEventListener('input', () => {
+    stampSizeMultiplier = slider.value / 100;
+    if (pctLabel) pctLabel.textContent = slider.value + '%';
+  });
+  slider.addEventListener('pointerdown', e => e.stopPropagation());
+}());
 bindTap(toolRedPenButton, () => setActiveTool('redPen'));
 bindTap(toolMarkerButton, () => setActiveTool('marker'));
 bindTap(toolEraserButton, () => setActiveTool('eraser'));
@@ -4832,6 +5657,28 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  // 選択中スラーの削除・解除（他のEnterハンドラより優先）
+  if (selectedSlur !== null && isReaderOpen()) {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      const t = event.target;
+      if (!(t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || (t instanceof HTMLElement && t.isContentEditable))) {
+        event.preventDefault();
+        deleteSelectedSlur();
+        return;
+      }
+    }
+    if (event.key === 'Enter' || event.key === 'Escape') {
+      event.preventDefault();
+      selectedSlur = null;
+      if (annotationCanvas && annotationContext) {
+        annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+        const data = annotationStrokes.get(getAnnotationKey());
+        if (data && data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+      }
+      return;
+    }
+  }
+
   if (
     event.key === 'Enter' &&
     previewSheet.style.display !== 'none' &&
@@ -4920,8 +5767,29 @@ document.addEventListener('keydown', (event) => {
     return;
   }
 
+  // 選択中スタンプの削除・解除
+  if (selectedStamp !== null) {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      deleteSelectedStamp();
+      return;
+    }
+    if (event.key === 'Enter' || event.key === 'Escape') {
+      event.preventDefault();
+      clearSelectedStamp();
+      return;
+    }
+  }
+
   if (handleAnnotationShortcut(event)) {
     event.preventDefault();
+    return;
+  }
+
+  // S キー: スラーツールのトグル
+  if (event.key === 's' || event.key === 'S') {
+    event.preventDefault();
+    activeTool === 'slur' ? clearActiveTool() : setActiveTool('slur');
     return;
   }
 
@@ -5010,21 +5878,94 @@ if (layoutScrollVBtn) {
 if (layoutScrollHBtn) {
   bindTap(layoutScrollHBtn, () => { setReaderLayoutMode('scrollH'); });
 }
-if (abPenBtn) bindTap(abPenBtn, () => setActiveTool('redPen'));
-if (abMarkerBtn) bindTap(abMarkerBtn, () => setActiveTool('marker'));
-if (abEraserBtn) bindTap(abEraserBtn, () => setActiveTool('eraser'));
-if (abTextBtn) bindTap(abTextBtn, () => setActiveTool('textStamp'));
-if (abFingerBtn) bindTap(abFingerBtn, () => setActiveTool('finger'));
-if (abAccidentalBtn) bindTap(abAccidentalBtn, () => setActiveTool('accidental'));
-if (abBowingBtn) bindTap(abBowingBtn, () => setActiveTool('bowing'));
-if (abRedCircleBtn) bindTap(abRedCircleBtn, () => setActiveTool('redCircle'));
+if (abPenBtn) bindTap(abPenBtn, () => activeTool === 'redPen' ? clearActiveTool() : setActiveTool('redPen'));
+if (abMarkerBtn) bindTap(abMarkerBtn, () => activeTool === 'marker' ? clearActiveTool() : setActiveTool('marker'));
+if (abEraserBtn) bindTap(abEraserBtn, () => activeTool === 'eraser' ? clearActiveTool() : setActiveTool('eraser'));
+if (abTextBtn) bindTap(abTextBtn, () => activeTool === 'textStamp' ? clearActiveTool() : setActiveTool('textStamp'));
+if (abRedCircleBtn) bindTap(abRedCircleBtn, () => activeTool === 'redCircle' ? clearActiveTool() : setActiveTool('redCircle'));
+if (abSlurBtn) bindTap(abSlurBtn, () => activeTool === 'slur' ? clearActiveTool() : setActiveTool('slur'));
+
+// Finger panel toggle
+if (abFingerBtn) {
+  bindTap(abFingerBtn, () => {
+    activeTool === 'finger' ? clearActiveTool() : setActiveTool('finger');
+  });
+}
+if (abFingerPanel) {
+  abFingerPanel.querySelectorAll('[data-finger]').forEach(btn => {
+    bindTap(btn, () => {
+      currentFingerNumber = btn.dataset.finger;
+      setActiveTool('finger');
+      applyActiveToolButtonState();
+    });
+  });
+}
+
+// Accidental panel toggle
+if (abAccidentalBtn) {
+  bindTap(abAccidentalBtn, () => {
+    abFingerPanel && (abFingerPanel.hidden = true);
+    abBowSlurPanel && (abBowSlurPanel.hidden = true);
+    activeTool === 'accidental' ? clearActiveTool() : setActiveTool('accidental');
+  });
+}
+if (abAccidentalPanel) {
+  abAccidentalPanel.querySelectorAll('[data-acc]').forEach(btn => {
+    bindTap(btn, () => {
+      currentAccidentalType = btn.dataset.acc;
+      setActiveTool('accidental');
+      applyActiveToolButtonState();
+    });
+  });
+}
+
+if (abBowingBtn) bindTap(abBowingBtn, () => activeTool === 'bowing' ? clearActiveTool() : setActiveTool('bowing'));
+
+// Combined bowing / slur button
+if (abBowSlurBtn) {
+  bindTap(abBowSlurBtn, () => {
+    (activeTool === 'bowing' || activeTool === 'slur') ? clearActiveTool() : setActiveTool(lastBowSlurTool);
+  });
+}
+if (abUpBowBtn) {
+  bindTap(abUpBowBtn, () => {
+    currentBowType = 'up';
+    lastBowSlurTool = 'bowing';
+    setActiveTool('bowing');
+  });
+}
+if (abDownBowBtn) {
+  bindTap(abDownBowBtn, () => {
+    currentBowType = 'down';
+    lastBowSlurTool = 'bowing';
+    setActiveTool('bowing');
+  });
+}
+if (abSlurOptBtn) {
+  bindTap(abSlurOptBtn, () => {
+    lastBowSlurTool = 'slur';
+    setActiveTool('slur');
+  });
+}
+
 if (abClearBtn) bindTap(abClearBtn, clearCurrentAnnotation);
+
+// しおり
+if (abBookmarkAdd) bindTap(abBookmarkAdd, openBookmarkForm);
+if (bookmarkSaveBtn) bindTap(bookmarkSaveBtn, saveBookmark);
+if (bookmarkCancelBtn) bindTap(bookmarkCancelBtn, closeBookmarkForm);
+if (bookmarkPageInput) {
+  bookmarkPageInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveBookmark();
+    if (e.key === 'Escape') closeBookmarkForm();
+  });
+}
 
 // カラードット
 if (abColorSizePanel) {
   abColorSizePanel.querySelectorAll('.ab-color[data-color]').forEach(btn => {
     bindTap(btn, () => {
-      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      if (!toolMap[activeTool]?.color) return;
       toolMap[activeTool].color = btn.dataset.color;
       updateAbBar();
     });
@@ -5033,12 +5974,12 @@ if (abColorSizePanel) {
   // カスタムカラー
   if (abColorCustomBtn && abColorInput) {
     bindTap(abColorCustomBtn, () => {
-      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      if (!toolMap[activeTool]?.color) return;
       abColorInput.value = toolMap[activeTool].color;
       abColorInput.click();
     });
     abColorInput.addEventListener('input', () => {
-      if (activeTool !== 'redPen' && activeTool !== 'marker') return;
+      if (!toolMap[activeTool]?.color) return;
       toolMap[activeTool].color = abColorInput.value;
       updateAbBar();
     });
@@ -5059,6 +6000,48 @@ if (abColorSizePanel) {
 }
 bindTap(metronomeWindowToggle, toggleMetronomeWindow);
 bindTap(tunerWindowToggle, toggleTunerWindow);
+
+// ─── サイドバートグル ───
+const sidebarToggle = document.getElementById('sidebarToggle');
+const readerEl = document.querySelector('.reader');
+
+function isSidebarOpen() {
+  return readerEl && readerEl.classList.contains('sidebar-open');
+}
+
+function setSidebarOpen(open) {
+  if (!readerEl) return;
+  if (open) clearActiveTool();
+  readerEl.classList.toggle('sidebar-open', open);
+}
+
+function toggleSidebar() {
+  setSidebarOpen(!isSidebarOpen());
+}
+
+if (sidebarToggle) {
+  bindTap(sidebarToggle, toggleSidebar);
+}
+
+// Cmd+B (Mac) / Ctrl+B (Win) でサイドバートグル
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+    e.preventDefault();
+    toggleSidebar();
+  }
+});
+
+const displaySectionToggle = document.getElementById('displaySectionToggle');
+const displaySectionBody = document.getElementById('displaySectionBody');
+if (displaySectionToggle && displaySectionBody) {
+  bindTap(displaySectionToggle, () => {
+    const willOpen = displaySectionBody.hidden;
+    displaySectionToggle.setAttribute('aria-expanded', String(willOpen));
+    const arrow = displaySectionToggle.querySelector('.tool-section-arrow');
+    if (arrow) arrow.textContent = willOpen ? '▼' : '▶';
+    animatePanelToggle(displaySectionBody, willOpen);
+  });
+}
 
 // iPad/IAB fallback: unify to pointerup to avoid touchend+click double-toggle.
 function bindSingleToggle(button, handler) {
@@ -5515,6 +6498,56 @@ async function loadAnnotationsFromDrive(folderId) {
     console.error('Load annotations from Drive failed:', err);
   }
 }
+
+// ── ツールチップ ──────────────────────────────────────────────────────────────
+(function setupAbTooltips() {
+  const tooltip = document.getElementById('abTooltip');
+  if (!tooltip) return;
+
+  const tips = [
+    [abPenBtn,        { title: 'ペン', desc: '自由曲線で書き込む' }],
+    [abMarkerBtn,     { title: 'マーカー', desc: '半透明の蛍光マーカー' }],
+    [abEraserBtn,     { title: '消しゴム', desc: '注釈を消去する' }],
+    [abTextBtn,       { title: 'テキスト', shortcuts: [['Enter / Space', '配置']] }],
+    [abFingerBtn,     { title: '指番号', shortcuts: [['0〜5', '指番号を配置']] }],
+    [abAccidentalBtn, { title: '臨時記号', shortcuts: [['#', 'シャープ ♯'], ['b', 'フラット ♭'], ['n', 'ナチュラル ♮']] }],
+    [abBowSlurBtn,    { title: 'ボーイング / スラー', shortcuts: [['U', 'アップボウ V'], ['D', 'ダウンボウ ⊓'], ['S', 'スラー']] }],
+    [abRedCircleBtn,  { title: '赤マル', shortcuts: [['O / Enter', '配置']] }],
+    [abClearBtn,      { title: '注釈を全消去', desc: 'このページの注釈をすべて削除' }],
+    [document.getElementById('sidebarToggle'), { title: 'サイドバー', shortcuts: [['⌘ B', '開閉']] }],
+  ];
+
+  let timer = null;
+
+  const show = (btn, data) => {
+    const rect = btn.getBoundingClientRect();
+    let html = `<div class="ab-tooltip-title">${data.title}</div>`;
+    if (data.desc) html += `<div class="ab-tooltip-desc">${data.desc}</div>`;
+    if (data.shortcuts?.length) {
+      html += `<div class="ab-tooltip-shortcuts">`;
+      for (const [key, label] of data.shortcuts) {
+        html += `<div class="ab-tooltip-row"><span class="ab-tooltip-key">${key}</span><span>${label}</span></div>`;
+      }
+      html += `</div>`;
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.top = Math.round(rect.top + rect.height / 2) + 'px';
+    tooltip.style.left = Math.round(rect.right + 10) + 'px';
+    tooltip.classList.add('visible');
+  };
+
+  const hide = () => {
+    clearTimeout(timer);
+    tooltip.classList.remove('visible');
+  };
+
+  for (const [btn, data] of tips) {
+    if (!btn) continue;
+    btn.addEventListener('mouseenter', () => { timer = setTimeout(() => show(btn, data), 600); });
+    btn.addEventListener('mouseleave', hide);
+    btn.addEventListener('mousedown', hide);
+  }
+}());
 
 // Google GSI は async 読み込みのため window.load より遅れることがある。
 // onGoogleLibraryLoad はライブラリ準備完了時に必ず呼ばれる公式コールバック。
