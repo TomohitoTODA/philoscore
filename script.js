@@ -5956,22 +5956,24 @@ window.addEventListener('mouseup', stopDrawing);
 window.addEventListener('touchend', stopDrawing);
 
 // タップゾーン: 左30%→前ページ / 右30%→次ページ
-// bindDrawingEvents が mouse/pen の pointerdown で preventDefault するため click は発火せず描画と競合しない。
-// タッチのみ click が発火するので activeTool ガードでアノテーションモードを除外する。
+// canvas に touch-action:none が設定されているため iOS Safari では click が発火しない。
+// pointerup (touch のみ) でタップ判定し、既存スワイプ(100px超)との二重発火は 12px 閾値で防ぐ。
 (function () {
   let _tapStartX = -1;
   let _tapStartY = -1;
 
   readerStage.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
     _tapStartX = e.clientX;
     _tapStartY = e.clientY;
   }, { passive: true });
 
-  readerStage.addEventListener('click', (e) => {
+  readerStage.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch') return;
     if (!isReaderOpen()) return;
     if (readerLayoutMode === 'scrollV' || readerLayoutMode === 'scrollH') return;
     if (activeTool !== null) return;
-    // スワイプ後に発火するclickを除外（12px超の移動はタップとみなさない）
+    // スワイプ後に発火するpointerupを除外（12px超の移動はタップとみなさない）
     if (Math.abs(e.clientX - _tapStartX) > 12 || Math.abs(e.clientY - _tapStartY) > 12) return;
     // ボタン等のUI要素からのバブルは除外
     if (e.target !== readerStage) {
