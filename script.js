@@ -349,6 +349,7 @@ let folderPickerMultiple = true;
 let folderPickerSelectableParents = false;
 let folderPickerAllowEmptySelection = false;
 let isRenderingList = false;
+let wakeLockSentinel = null;
 
 const toolMap = {
   redPen: { mode: 'draw', color: '#e53935', width: 2.4, alpha: 1 },
@@ -1660,6 +1661,7 @@ async function openReaderItem(item, options = {}) {
   renderReaderTabs();
   renderBookmarkSlots();
   await renderReaderPage();
+  acquireWakeLock();
 }
 
 function deleteLibraryItem(itemId) {
@@ -4914,7 +4916,20 @@ async function openReaderFromPreview() {
   });
 }
 
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+  } catch (err) {
+    console.warn('Wake Lock の取得に失敗しました:', err);
+  }
+}
+
 function closeReader() {
+  if (wakeLockSentinel) {
+    wakeLockSentinel.release().catch(() => {});
+    wakeLockSentinel = null;
+  }
   persistCurrentAnnotation();
   isDrawing = false;
   lastPoint = null;
@@ -5916,12 +5931,62 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'ArrowRight') {
     event.preventDefault();
     moveReaderPage(1);
+    return;
+  }
+
+  // Space / PageDown / PageUp: Bluetooth フットペダル互換
+  if (event.key === ' ') {
+    event.preventDefault();
+    moveReaderPage(event.shiftKey ? -1 : 1);
+    return;
+  }
+  if (event.key === 'PageDown') {
+    event.preventDefault();
+    moveReaderPage(1);
+    return;
+  }
+  if (event.key === 'PageUp') {
+    event.preventDefault();
+    moveReaderPage(-1);
   }
 });
 
 bindPreviewTrackingEvents();
 window.addEventListener('mouseup', stopDrawing);
 window.addEventListener('touchend', stopDrawing);
+
+// タップゾーン: 左30%→前ページ / 右30%→次ページ
+// bindDrawingEvents が mouse/pen の pointerdown で preventDefault するため click は発火せず描画と競合しない。
+// タッチのみ click が発火するので activeTool ガードでアノテーションモードを除外する。
+(function () {
+  let _tapStartX = -1;
+  let _tapStartY = -1;
+
+  readerStage.addEventListener('pointerdown', (e) => {
+    _tapStartX = e.clientX;
+    _tapStartY = e.clientY;
+  }, { passive: true });
+
+  readerStage.addEventListener('click', (e) => {
+    if (!isReaderOpen()) return;
+    if (readerLayoutMode === 'scrollV' || readerLayoutMode === 'scrollH') return;
+    if (activeTool !== null) return;
+    // スワイプ後に発火するclickを除外（12px超の移動はタップとみなさない）
+    if (Math.abs(e.clientX - _tapStartX) > 12 || Math.abs(e.clientY - _tapStartY) > 12) return;
+    // ボタン等のUI要素からのバブルは除外
+    if (e.target !== readerStage) {
+      const closer = e.target.closest('button, input, select, textarea, [role="button"]');
+      if (closer) return;
+    }
+    const rect = readerStage.getBoundingClientRect();
+    const frac = (e.clientX - rect.left) / rect.width;
+    if (frac < 0.3) {
+      moveReaderPage(-1);
+    } else if (frac > 0.7) {
+      moveReaderPage(1);
+    }
+  });
+}());
 
 // Apple Pencil ダブルタップ (side double-tap / barrel button): button===1
 // キャンバス上に限らずドキュメント全体で拾う
@@ -6685,3 +6750,10 @@ window.addEventListener('load', () => {
 
   document.fonts.load('24px "Noto Music"').catch(() => {});
 }());
+
+// タブ切替で Wake Lock が自動解放されるため、visible に戻ったら再取得する
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isReaderOpen()) {
+    acquireWakeLock();
+  }
+});
