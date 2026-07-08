@@ -2018,8 +2018,10 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        color: var(--text);
       }
       .ab-btn.active { background: rgba(0, 0, 0, 0.07); }
+      #abRedCircleBtn { color: #d32f2f; }
       .ab-bowslur-panel {
         position: absolute;
         left: 54px;
@@ -2628,10 +2630,76 @@
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          color: var(--text);
         }
 
         .ab-btn.active {
           background: rgba(0, 0, 0, 0.07);
+        }
+
+        /* スタンプ選択時フロートバー */
+        .stamp-float-bar {
+          display: none;
+        }
+        .stamp-float-bar:not([hidden]) {
+          position: absolute;
+          bottom: 28px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          gap: 0;
+          background: rgba(255, 255, 255, 0.96);
+          border: 1px solid var(--line);
+          border-radius: 16px;
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          padding: 4px 6px;
+          z-index: 95;
+          white-space: nowrap;
+        }
+        .sfb-btn {
+          border: none;
+          background: transparent;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text);
+          padding: 6px 12px;
+          cursor: pointer;
+          border-radius: 10px;
+          min-width: 40px;
+          min-height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+        }
+        .sfb-color-swatch {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          border: 1px solid rgba(0,0,0,0.15);
+          display: inline-block;
+          flex-shrink: 0;
+        }
+        .sfb-del { color: #d32f2f; }
+        .sfb-sep {
+          width: 1px;
+          height: 22px;
+          background: var(--line);
+          margin: 0 2px;
+          flex-shrink: 0;
+        }
+        .sfb-size-label {
+          font-size: 13px;
+          color: var(--sub);
+          min-width: 22px;
+          text-align: center;
+        }
+        .sfb-color-label {
+          cursor: pointer;
+          position: relative;
         }
 
         /* カラー/サイズパネル */
@@ -3213,10 +3281,29 @@
         <div id="readerStage" class="reader-stage"></div>
       </div>
       </div>
+
+      <!-- スタンプ選択時フロートバー（タブレット用） -->
+      <div id="stampFloatBar" class="stamp-float-bar" hidden>
+        <label for="sfbColorInput" class="sfb-btn sfb-color-label" aria-label="色変更">
+          <span id="sfbColorSwatch" class="sfb-color-swatch"></span>
+          色
+        </label>
+        <input type="color" id="sfbColorInput" tabindex="-1" aria-hidden="true"
+          style="opacity:0;position:absolute;width:0;height:0;pointer-events:none;">
+        <div class="sfb-sep"></div>
+        <button id="sfbSizeDecBtn" class="sfb-btn" type="button" aria-label="縮小">−</button>
+        <span id="sfbSizeLabel" class="sfb-size-label">12</span>
+        <button id="sfbSizeIncBtn" class="sfb-btn" type="button" aria-label="拡大">＋</button>
+        <div class="sfb-sep"></div>
+        <button id="sfbDupBtn" class="sfb-btn" type="button" aria-label="複製">複製</button>
+        <div class="sfb-sep"></div>
+        <button id="sfbDelBtn" class="sfb-btn sfb-del" type="button" aria-label="削除">削除</button>
+      </div>
+
     </section>
 
     <div id="composerSuggestions" class="composer-suggestions" hidden></div>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="script.js?v=20260708-03" defer></script>
+    <script src="script.js?v=20260708-04" defer></script>
   </body>
 </html>

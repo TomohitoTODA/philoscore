@@ -162,6 +162,16 @@ const tunerDirectionDisplay = document.getElementById('tunerDirectionDisplay');
 const tunerThresholdSlider = document.getElementById('tunerThresholdSlider');
 const tunerThresholdValue = document.getElementById('tunerThresholdValue');
 
+// スタンプフロートバー（タブレット用）
+const stampFloatBar  = document.getElementById('stampFloatBar');
+const sfbColorInput  = document.getElementById('sfbColorInput');
+const sfbColorSwatch = document.getElementById('sfbColorSwatch');
+const sfbSizeDecBtn  = document.getElementById('sfbSizeDecBtn');
+const sfbSizeIncBtn  = document.getElementById('sfbSizeIncBtn');
+const sfbSizeLabel   = document.getElementById('sfbSizeLabel');
+const sfbDupBtn      = document.getElementById('sfbDupBtn');
+const sfbDelBtn      = document.getElementById('sfbDelBtn');
+
 const library = [];
 const pdfCache = new Map();
 const pdfThumbCache = new Map(); // item.id → data URL
@@ -1985,11 +1995,30 @@ function syncStampSizePicker(scale) {
   }
 }
 
+function syncStampFloatBar() {
+  if (!stampFloatBar) return;
+  if (!selectedStamp) {
+    stampFloatBar.hidden = true;
+    return;
+  }
+  const { key, index } = selectedStamp;
+  const data = key ? annotationStrokes.get(key) : null;
+  const op = data ? data.ops[index] : null;
+  if (!op) { stampFloatBar.hidden = true; return; }
+  stampFloatBar.hidden = false;
+  const color = op.c || '#111111';
+  if (sfbColorInput) sfbColorInput.value = color;
+  if (sfbColorSwatch) sfbColorSwatch.style.background = color;
+  const fs = Math.max(7, Math.min(20, Math.round((op.sc ?? 1.0) * 12)));
+  if (sfbSizeLabel) sfbSizeLabel.textContent = fs;
+}
+
 function clearSelectedStamp() {
   if (!selectedStamp) return;
   const lc = selectedStamp.key ? liveAnnotationCanvases.get(selectedStamp.key) : null;
   if (lc) lc.getContext('2d').clearRect(0, 0, lc.width, lc.height);
   selectedStamp = null;
+  if (stampFloatBar) stampFloatBar.hidden = true;
   if (activeTool === 'accidental' || activeTool === 'bowing' || activeTool === 'finger') {
     syncStampSizePicker(stampSizeMultiplier);
   }
@@ -2673,6 +2702,7 @@ function beginDrawing(event) {
       stampDragState = { key, index: hit.index, canvas: annotationCanvas, offX: sp.x - pt.x, offY: sp.y - pt.y };
       selectedStamp = { key, index: hit.index };
       syncStampSizePicker(op.sc ?? 1.0);
+      syncStampFloatBar();
       return;
     }
     // No hit: clear selection and place new stamp if applicable
@@ -2916,6 +2946,7 @@ function stopDrawing() {
     if (op) {
       drawSelectedStampHighlight(op, stampDragState.canvas);
       syncStampSizePicker(op.sc ?? 1.0);
+      syncStampFloatBar();
     }
     stampDragState = null;
     return;
@@ -5972,7 +6003,7 @@ window.addEventListener('touchend', stopDrawing);
     if (e.pointerType !== 'touch') return;
     if (!isReaderOpen()) return;
     if (readerLayoutMode === 'scrollV' || readerLayoutMode === 'scrollH') return;
-    if (activeTool !== null) return;
+    // タッチではいかなるツールでも描画は発火しないので activeTool チェック不要
     // スワイプ後に発火するpointerupを除外（12px超の移動はタップとみなさない）
     if (Math.abs(e.clientX - _tapStartX) > 12 || Math.abs(e.clientY - _tapStartY) > 12) return;
     // ボタン等のUI要素からのバブルは除外
@@ -6751,6 +6782,68 @@ window.addEventListener('load', () => {
   pngSrcs.forEach((src) => getPngImage(src));
 
   document.fonts.load('24px "Noto Music"').catch(() => {});
+}());
+
+// ── スタンプフロートバー イベント ────────────────────────────────────────────
+(function setupStampFloatBar() {
+  if (!stampFloatBar) return;
+
+  function redrawStampEdit() {
+    if (!selectedStamp) return;
+    const { key } = selectedStamp;
+    const data = key ? annotationStrokes.get(key) : null;
+    if (!data) return;
+    if (annotationCanvas && annotationContext) {
+      annotationContext.clearRect(0, 0, annotationCanvas.width, annotationCanvas.height);
+      if (data.ops.length > 0) replayAnnotationOps(annotationContext, annotationCanvas, data.ops);
+    }
+    const op = data.ops[selectedStamp.index];
+    if (op) drawSelectedStampHighlight(op, annotationCanvas);
+    persistCurrentAnnotation();
+  }
+
+  if (sfbColorInput) {
+    sfbColorInput.addEventListener('input', () => {
+      if (!selectedStamp) return;
+      const { key, index } = selectedStamp;
+      const data = key ? annotationStrokes.get(key) : null;
+      if (!data || !data.ops[index]) return;
+      data.ops[index].c = sfbColorInput.value;
+      if (sfbColorSwatch) sfbColorSwatch.style.background = sfbColorInput.value;
+      redrawStampEdit();
+    });
+  }
+
+  function adjustSfbSize(delta) {
+    if (!selectedStamp) return;
+    const { key, index } = selectedStamp;
+    const data = key ? annotationStrokes.get(key) : null;
+    if (!data || !data.ops[index]) return;
+    const op = data.ops[index];
+    const fs = Math.max(7, Math.min(20, Math.round((op.sc ?? 1.0) * 12) + delta));
+    op.sc = fs / 12;
+    if (sfbSizeLabel) sfbSizeLabel.textContent = fs;
+    redrawStampEdit();
+  }
+
+  if (sfbSizeDecBtn) bindTap(sfbSizeDecBtn, () => adjustSfbSize(-1));
+  if (sfbSizeIncBtn) bindTap(sfbSizeIncBtn, () => adjustSfbSize(1));
+
+  if (sfbDupBtn) {
+    bindTap(sfbDupBtn, () => {
+      if (!selectedStamp) return;
+      const { key, index } = selectedStamp;
+      const data = key ? annotationStrokes.get(key) : null;
+      if (!data || !data.ops[index]) return;
+      const src = data.ops[index];
+      pushAnnotationOp(Object.assign({}, src, {
+        x: Math.min(0.97, src.x + 0.03),
+        y: Math.min(0.97, src.y + 0.03),
+      }));
+    });
+  }
+
+  if (sfbDelBtn) bindTap(sfbDelBtn, deleteSelectedStamp);
 }());
 
 // タブ切替で Wake Lock が自動解放されるため、visible に戻ったら再取得する
