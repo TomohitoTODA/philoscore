@@ -162,6 +162,21 @@ const tunerDirectionDisplay = document.getElementById('tunerDirectionDisplay');
 const tunerThresholdSlider = document.getElementById('tunerThresholdSlider');
 const tunerThresholdValue = document.getElementById('tunerThresholdValue');
 
+// 新規 UI 要素
+const darkModeToggle    = document.getElementById('darkModeToggle');
+const searchInput       = document.getElementById('searchInput');
+const searchClear       = document.getElementById('searchClear');
+const modalOverlay      = document.getElementById('modalOverlay');
+const modalMessage      = document.getElementById('modalMessage');
+const modalInput        = document.getElementById('modalInput');
+const modalButtons      = document.getElementById('modalButtons');
+const toastContainer    = document.getElementById('toastContainer');
+const setlistSheet      = document.getElementById('setlistSheet');
+const closeSetlistSheetButton = document.getElementById('closeSetlistSheetButton');
+const setlistSheetList  = document.getElementById('setlistSheetList');
+const setlistSheetCreateBtn = document.getElementById('setlistSheetCreateBtn');
+const setlistSheetItemTitle = document.getElementById('setlistSheetItemTitle');
+
 // スタンプフロートバー（タブレット用）
 const stampFloatBar  = document.getElementById('stampFloatBar');
 const sfbColorInput  = document.getElementById('sfbColorInput');
@@ -181,6 +196,15 @@ let currentStroke = null;
 let annotationDb = null;
 const persistentAnnotationCanvases = new Map();
 const liveAnnotationCanvases = new Map(); // cacheKey → HTMLCanvasElement (slur/drag preview overlay)
+const readerPageCache = new Map(); // 先読みキャッシュ: `${itemId}:${page}:${scale}` → canvas
+
+// 検索状態
+let searchQuery = '';
+
+// セットリスト状態 ([{ id, name, itemIds: [] }])
+let setlists = [];
+let activeSetlistId = null;
+let setlistActiveIndex = -1;
 const folders = [
   { id: 'favorites', name: 'お気に入り', kind: 'special', parentId: null, system: true },
   { id: 'inbox', name: '未分類', kind: 'leaf', parentId: null, system: true },
@@ -619,6 +643,9 @@ function renderSidebar() {
 
   // 作曲家タブは閲覧専用 — 追加ボタンを隠す
   if (headerAddButton) headerAddButton.hidden = activeFolderId === 'composer';
+
+  // セットリストパネルを更新（関数はスクリプト末尾で定義）
+  if (typeof renderSetlists === 'function') renderSetlists();
 }
 
 function renderSubFilter() {
@@ -1063,30 +1090,36 @@ function isSystemFolder(folderId) {
   return !!getFolderById(folderId)?.system;
 }
 
+function itemMatchesSearch(item) {
+  if (!searchQuery) return true;
+  const q = searchQuery.toLowerCase();
+  return (
+    (item.title || '').toLowerCase().includes(q) ||
+    (item.composer || '').toLowerCase().includes(q)
+  );
+}
+
 function getVisibleLibraryItems() {
   const effectiveId = getEffectiveFolderId();
+  let base;
+
   if (effectiveId === 'all') {
-    return library;
-  }
-
-  if (effectiveId === 'favorites') {
-    return library.filter((item) => favoriteItemIds.includes(item.id));
-  }
-
-  if (activeFolderId === 'composer') {
-    return library.filter((item) => item.composer && item.composer.trim() !== '');
-  }
-
-  // orchestra + 全て + パート譜/スコアフィルタ
-  if (activeFolderId === 'orchestra' && activeStatusFilter === 'all' && activeTypeFilter !== 'all') {
-    return library.filter(
+    base = library;
+  } else if (effectiveId === 'favorites') {
+    base = library.filter((item) => favoriteItemIds.includes(item.id));
+  } else if (activeFolderId === 'composer') {
+    base = library.filter((item) => item.composer && item.composer.trim() !== '');
+  } else if (activeFolderId === 'orchestra' && activeStatusFilter === 'all' && activeTypeFilter !== 'all') {
+    base = library.filter(
       (item) =>
         itemMatchesFolderTree(item, 'orchestra') &&
         getItemFolderIds(item).some((id) => id.endsWith(`-${activeTypeFilter}`)),
     );
+  } else {
+    base = library.filter((item) => itemMatchesFolderTree(item, effectiveId));
   }
 
-  return library.filter((item) => itemMatchesFolderTree(item, effectiveId));
+  return searchQuery ? base.filter(itemMatchesSearch) : base;
 }
 
 function getFolderItemCount(folderId) {
@@ -1435,13 +1468,13 @@ function openMoveFolderSheet(item) {
 function openFolderParentSelectionSheet() {
   closeFolderMenu();
   openMoveFolderItemId = null;
-  openFolderPickerInternal((selectedIds) => {
+  openFolderPickerInternal(async (selectedIds) => {
     const parentId = selectedIds[0] || null;
-    const folderName = window.prompt('フォルダ名を入力してください');
+    const folderName = await showPrompt('フォルダ名を入力してください');
     if (!folderName) {
       return;
     }
-    const folder = addFolder(folderName, parentId);
+    const folder = addFolder(folderName.trim(), parentId);
     if (folder) {
       setActiveFolder(folder.id);
     }
@@ -1481,7 +1514,8 @@ function confirmFolderPickerSelection() {
   closeMoveFolderSheet();
 
   if (typeof callback === 'function') {
-    callback(selectedIds);
+    const r = callback(selectedIds);
+    if (r instanceof Promise) r.catch(console.error);
   }
 }
 
@@ -1498,7 +1532,7 @@ function addFolder(name, parentId = activeFolderId) {
   const targetParentId = parentNode ? parentNode.id : null;
   const targetDepth = targetParentId ? getFolderDepth(targetParentId) + 1 : 1;
   if (targetDepth > 3) {
-    alert('フォルダは3階層までです。');
+    showToast('フォルダは3階層までです。', 'error');
     return null;
   }
 
@@ -1506,7 +1540,7 @@ function addFolder(name, parentId = activeFolderId) {
     .filter((folder) => folder.parentId === targetParentId)
     .map((folder) => folder.name);
   if (siblingNames.includes(normalized)) {
-    alert('同じ名前のフォルダがすでにあります。');
+    showToast('同じ名前のフォルダがすでにあります。', 'error');
     return null;
   }
 
@@ -1657,7 +1691,7 @@ async function openReaderItem(item, options = {}) {
     try {
       await ensurePdfJs();
     } catch (error) {
-      alert('PDF.js の読み込みに失敗したため、PDFを開けません。');
+      showToast('PDF.js の読み込みに失敗しました。接続を確認して再試行してください。', 'error');
       return;
     }
   }
@@ -2276,11 +2310,9 @@ function drawDownBowSymbol(cx, cy, size, color) {
   pass(color, lw);
 }
 
-function promptAnnotationText() {
-  const value = window.prompt('追加する文字を入力');
-  if (value === null) {
-    return '';
-  }
+async function promptAnnotationText() {
+  const value = await showPrompt('追加する文字を入力してください', '');
+  if (value === null) return '';
   return value.trim();
 }
 
@@ -2375,7 +2407,7 @@ function setAnnotationStampImages(sources = {}) {
   });
 }
 
-function placeAnnotationStamp(value = null) {
+async function placeAnnotationStamp(value = null) {
   if (!annotationContext || !annotationCanvas) {
     return false;
   }
@@ -2424,7 +2456,7 @@ function placeAnnotationStamp(value = null) {
   }
 
   if (tool.type === 'freeText') {
-    const text = String(value ?? promptAnnotationText());
+    const text = String(value ?? await promptAnnotationText());
     if (!text) {
       annotationContext.restore();
       return false;
@@ -2457,29 +2489,34 @@ function handleAnnotationShortcut(event) {
   }
 
   if (activeTool === 'finger' && /^[0-5]$/.test(event.key)) {
-    return placeAnnotationStamp(event.key);
+    placeAnnotationStamp(event.key);
+    return true;
   }
 
   if (activeTool === 'accidental') {
     const key = event.key.toLowerCase();
     if (event.key === '#' || key === 'b' || key === 'n' || event.key === 'Enter' || event.key === ' ') {
-      return placeAnnotationStamp(event.key === 'Enter' || event.key === ' ' ? 'sharp' : key === 'b' ? 'flat' : key === 'n' ? 'natural' : '#');
+      placeAnnotationStamp(event.key === 'Enter' || event.key === ' ' ? 'sharp' : key === 'b' ? 'flat' : key === 'n' ? 'natural' : '#');
+      return true;
     }
   }
 
   if (activeTool === 'bowing') {
     const key = event.key.toLowerCase();
     if (key === 'u' || key === 'd') {
-      return placeAnnotationStamp(key === 'd' ? 'down' : 'up');
+      placeAnnotationStamp(key === 'd' ? 'down' : 'up');
+      return true;
     }
   }
 
   if (activeTool === 'textStamp' && (event.key === 'Enter' || event.key === ' ')) {
-    return placeAnnotationStamp();
+    placeAnnotationStamp();
+    return true;
   }
 
   if (activeTool === 'redCircle' && (event.key === 'Enter' || event.key === ' ' || event.key.toLowerCase() === 'o')) {
-    return placeAnnotationStamp();
+    placeAnnotationStamp();
+    return true;
   }
 
   return false;
@@ -2707,15 +2744,11 @@ function beginDrawing(event) {
     }
     // No hit: clear selection and place new stamp if applicable
     clearSelectedStamp();
-    if (activeTool === 'accidental') {
-      placeAnnotationStamp(currentAccidentalType);
-    } else if (activeTool === 'finger') {
-      placeAnnotationStamp(currentFingerNumber);
-    } else if (activeTool === 'bowing') {
-      placeAnnotationStamp(currentBowType);
-    } else {
-      placeAnnotationStamp();
-    }
+    const stampValue = activeTool === 'accidental' ? currentAccidentalType
+      : activeTool === 'finger' ? currentFingerNumber
+      : activeTool === 'bowing' ? currentBowType
+      : null;
+    placeAnnotationStamp(stampValue).catch(console.error);
     return;
   }
 
@@ -3164,8 +3197,10 @@ function updateFullscreenButtonState() {
     return;
   }
 
-  fullscreenToggleButton.classList.toggle('active', isReaderFocusMode);
-  fullscreenToggleButton.setAttribute('aria-label', isReaderFocusMode ? '通常表示' : '全画面');
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const active = isFs || isReaderFocusMode;
+  fullscreenToggleButton.classList.toggle('active', active);
+  fullscreenToggleButton.setAttribute('aria-label', active ? '通常表示' : '全画面');
 }
 
 function setReaderFocusMode(nextValue) {
@@ -3184,11 +3219,26 @@ function setReaderFocusMode(nextValue) {
 }
 
 async function toggleReaderFullscreen() {
-  if (!reader) {
-    return;
-  }
+  if (!reader) return;
 
-  setReaderFocusMode(!isReaderFocusMode);
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (isFs) {
+    const exitFn = document.exitFullscreen || document.webkitExitFullscreen;
+    try { await exitFn.call(document); } catch (_) { /* ignore */ }
+  } else {
+    const el = document.documentElement;
+    const reqFn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (reqFn) {
+      try {
+        await reqFn.call(el);
+        setReaderFocusMode(true);
+      } catch (_) {
+        setReaderFocusMode(!isReaderFocusMode);
+      }
+    } else {
+      setReaderFocusMode(!isReaderFocusMode);
+    }
+  }
 }
 
 function buildViewGroups(totalPages, mode) {
@@ -4076,13 +4126,13 @@ async function startMicTuner() {
   };
 
   if (!window.isSecureContext) {
-    alert('このページは安全なコンテキストではないため、マイクが使えません。https または localhost で開いてください。');
+    showToast('マイクは https または localhost でのみ使用できます。', 'error');
     setDir('マイク不可: https が必要です');
     return;
   }
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('このブラウザではマイク入力が利用できません。');
+    showToast('このブラウザではマイク入力が利用できません。', 'error');
     setDir('マイク不可: ブラウザ非対応');
     return;
   }
@@ -4120,7 +4170,7 @@ async function toggleMicTuner() {
   } catch (error) {
     console.error('Failed to start mic tuner.', error);
     const message = error && error.message ? error.message : 'unknown error';
-    alert(`マイクチューナーを開始できませんでした。マイク権限またはブラウザ設定を確認してください。\n(${message})`);
+    showToast(`マイクチューナーを開始できませんでした: ${message}`, 'error');
     if (tunerDirectionDisplay) tunerDirectionDisplay.textContent = 'マイク開始に失敗しました';
     stopMicTuner();
   }
@@ -4162,7 +4212,7 @@ async function playTunerTone(noteName) {
 function triggerTunerTone(noteName) {
   playTunerTone(noteName).catch((error) => {
     console.error('Failed to play tuner tone.', error);
-    alert('チューナー音の再生に失敗しました。');
+    showToast('チューナー音の再生に失敗しました。', 'error');
   });
 }
 
@@ -4241,7 +4291,7 @@ async function toggleMetronome() {
     await startMetronome();
   } catch (error) {
     console.error('Failed to start metronome.', error);
-    alert('メトロノームの開始に失敗しました。');
+    showToast('メトロノームの開始に失敗しました。', 'error');
   }
 }
 
@@ -4593,8 +4643,18 @@ function redoLastAnnotation() {
 async function exportAnnotatedPdf() {
   if (!activeItem) return;
   if (!window.PDFLib) {
-    alert('PDFライブラリが読み込まれていません。ページを再読み込みして再試行してください。');
-    return;
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = './vendor/pdf-lib.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('pdf-lib の読み込みに失敗しました'));
+        document.head.appendChild(s);
+      });
+    } catch (e) {
+      showToast('PDFライブラリを読み込めませんでした。接続を確認して再試行してください。', 'error');
+      return;
+    }
   }
   if (exportAnnotatedPdfButton) exportAnnotatedPdfButton.disabled = true;
   try {
@@ -4656,7 +4716,7 @@ async function exportAnnotatedPdf() {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   } catch (err) {
     console.error('Export failed:', err);
-    alert(`エクスポートに失敗しました: ${err.message}`);
+    showToast(`エクスポートに失敗しました: ${err.message}`, 'error');
   } finally {
     if (exportAnnotatedPdfButton) exportAnnotatedPdfButton.disabled = false;
   }
@@ -4875,11 +4935,11 @@ async function renderReaderPage(onAppend = null) {
       cell.className = 'reader-page-cell';
       cell.dataset.page = String(pageNumber);
       const targetScale = 1.5 * readerZoom;
-      const renderScale = Math.max(1.8, targetScale);
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const renderScale = Math.max(1.8, targetScale * dpr);
       const canvas = await renderPdfPageToCanvas(pdf, pageNumber, cell, renderScale);
       if (myGen !== readerRenderGen) return;
       if (canvas) {
-        // Keep render resolution high for clarity, but size by target zoom.
         const ratio = targetScale / renderScale;
         canvas.style.width = `${Math.max(1, Math.round(canvas.width * ratio))}px`;
         canvas.style.height = `${Math.max(1, Math.round(canvas.height * ratio))}px`;
@@ -4894,6 +4954,7 @@ async function renderReaderPage(onAppend = null) {
     readerStage.appendChild(readerGroup);
     if (onAppend) onAppend();
     setupAnnotationCanvas();
+    document.dispatchEvent(new Event('readerPageRendered'));
   } catch (error) {
     console.error('Failed to render reader PDF.', error);
     readerStage.textContent = 'PDF表示を読み込めませんでした。';
@@ -5147,7 +5208,7 @@ function buildListRow(item) {
     } catch (error) {
       console.error('Failed to open folder mover.', error);
       const detail = error?.stack || error?.message || 'unknown error';
-      alert(`フォルダ変更画面を開けませんでした。\n${detail}`);
+      showToast(`フォルダ変更画面を開けませんでした: ${detail}`, 'error');
     }
   });
 
@@ -5160,8 +5221,9 @@ function buildListRow(item) {
   deleteAction.type = 'button';
   deleteAction.textContent = '削除';
   deleteAction.addEventListener('click', () => {
-    if (!window.confirm(`「${item.title}」を削除しますか？`)) return;
-    deleteLibraryItem(item.id);
+    showConfirm(`「${item.title}」を削除しますか？`).then((ok) => {
+      if (ok) deleteLibraryItem(item.id);
+    });
   });
 
   const menuItems = [previewAction, editAction, favoriteAction];
@@ -5175,7 +5237,14 @@ function buildListRow(item) {
     });
     menuItems.push(moveStatusAction);
   }
-  menuItems.push(moveFolderAction, deleteAction);
+  const setlistAction = document.createElement('button');
+  setlistAction.className = 'library-menu-button';
+  setlistAction.type = 'button';
+  setlistAction.textContent = 'セットリストに追加';
+  setlistAction.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('setlistAddRequest', { detail: { item } }));
+  });
+  menuItems.push(moveFolderAction, setlistAction, deleteAction);
   menu.append(...menuItems);
 
   const isFav = favoriteItemIds.includes(item.id);
@@ -5284,7 +5353,7 @@ function renderList() {
   }
 }
 
-function addFile(file) {
+async function addFile(file) {
   if (!file) {
     return;
   }
@@ -5302,7 +5371,7 @@ function addFile(file) {
 
     if (!isPdf && !isImage) {
       stage = 'unsupported-file';
-      alert('PDFまたは画像ファイルのみ追加できます。');
+      showToast('PDFまたは画像ファイルのみ追加できます。', 'error');
       return;
     }
 
@@ -5310,7 +5379,7 @@ function addFile(file) {
     const duplicateItem = library.find((item) => isSameLibraryFile(item, file));
     if (duplicateItem) {
       stage = 'duplicate-found';
-      alert(`「${duplicateItem.title}」はすでに追加されています。`);
+      showToast(`「${duplicateItem.title}」はすでに追加されています。`);
       return;
     }
 
@@ -5363,7 +5432,7 @@ function addFile(file) {
   } catch (error) {
     console.error('Failed to add file.', error);
     const reason = error && error.message ? `\n(${error.message})` : '';
-    alert(`楽譜の追加に失敗しました。\n(stage: ${stage})${reason}`);
+    showToast(`楽譜の追加に失敗しました (${stage})${reason}`, 'error');
     renderList();
   }
 }
@@ -5527,8 +5596,7 @@ function bindTap(button, handler) {
 }
 
 fileInput.addEventListener('change', (event) => {
-  const [file] = event.target.files;
-  addFile(file);
+  Array.from(event.target.files).forEach((f) => addFile(f));
   fileInput.value = '';
 });
 
@@ -6375,7 +6443,7 @@ function initGoogleTokenClient() {
       const msg = err?.type ?? err?.message ?? JSON.stringify(err);
       console.error('Google OAuth error:', err);
       if (driveStatus) driveStatus.textContent = 'ログイン失敗: ' + msg;
-      alert('Googleログインに失敗しました: ' + msg);
+      showToast('Googleログインに失敗しました: ' + msg, 'error');
     },
   });
   return true;
@@ -6409,7 +6477,7 @@ if (loginButton) {
 
     if (!window.google?.accounts?.oauth2) {
       reset();
-      alert('Google認証ライブラリ未読み込み。ページを再読み込みしてください。');
+      showToast('Google認証ライブラリ未読み込み。ページを再読み込みしてください。', 'error');
       return;
     }
     initGoogleTokenClient();
@@ -6417,7 +6485,7 @@ if (loginButton) {
       googleTokenClient.requestAccessToken();
     } catch (e) {
       reset();
-      alert('Google認証エラー: ' + e.message);
+      showToast('Google認証エラー: ' + e.message, 'error');
     }
     // 認証成功は handleTokenResponse → renderAuthUI で処理されるので reset 不要
     // タイムアウト: 30秒経っても応答なければ戻す
@@ -6489,9 +6557,11 @@ async function saveLibraryMetadata() {
   if (!isSignedIn()) return;
   try {
     const folderId = await getOrCreateDriveAppFolder();
+    const nowIso = new Date().toISOString();
+    try { localStorage.setItem('gakufu-library-savedAt', nowIso); } catch (_) {}
     const payload = JSON.stringify({
       version: 1,
-      savedAt: new Date().toISOString(),
+      savedAt: nowIso,
       favoriteIds: favoriteItemIds.slice(),
       items: library.map(item => ({
         id: item.id,
@@ -6565,6 +6635,15 @@ async function loadFromDrive() {
     if (!meta.items?.length) {
       renderAuthUI('データなし');
       return;
+    }
+
+    // Drive競合チェック: ローカルの最終保存より Drive の方が新しい場合は確認
+    const localSavedAt = localStorage.getItem('gakufu-library-savedAt');
+    if (localSavedAt && meta.savedAt && meta.savedAt < localSavedAt) {
+      const ok = await showConfirm(
+        `ローカルの変更（${new Date(localSavedAt).toLocaleString()}）が Drive のデータ（${new Date(meta.savedAt).toLocaleString()}）より新しい状態です。\nDrive からの読み込みを続けますか？\n（キャンセルすると現在のローカルデータを保持します）`
+      );
+      if (!ok) { renderAuthUI('中断'); return; }
     }
 
     // Restore favorites from Drive (authoritative source)
@@ -6852,3 +6931,626 @@ document.addEventListener('visibilitychange', () => {
     acquireWakeLock();
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── トースト通知 ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showToast(message, type = 'info') {
+  if (!toastContainer) { console.warn('[Toast]', message); return; }
+  const toast = document.createElement('div');
+  toast.className = `toast${type !== 'info' ? ` toast-${type}` : ''}`;
+  toast.textContent = message;
+  toastContainer.appendChild(toast);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => toast.classList.add('toast-show'));
+  });
+  setTimeout(() => {
+    toast.classList.remove('toast-show');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+    setTimeout(() => toast.remove(), 400);
+  }, 3200);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── モーダル ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showModal({ message, input = false, defaultValue = '', buttons }) {
+  return new Promise((resolve) => {
+    if (!modalOverlay || !modalMessage || !modalButtons) {
+      // フォールバック
+      if (input) { resolve(window.prompt(message, defaultValue)); return; }
+      if (buttons.some(b => b.value === false)) { resolve(window.confirm(message)); return; }
+      window.alert(message); resolve(null); return;
+    }
+    modalMessage.textContent = message;
+    if (input) {
+      modalInput.hidden = false;
+      modalInput.value = defaultValue;
+    } else {
+      modalInput.hidden = true;
+    }
+    modalButtons.innerHTML = '';
+    const closeModal = (value) => {
+      modalOverlay.hidden = true;
+      resolve(value);
+    };
+    buttons.forEach(({ label, value, isPrimary }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `modal-btn${isPrimary ? ' modal-btn-primary' : ''}`;
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        closeModal(value === 'INPUT' ? (modalInput.value || null) : value);
+      });
+      modalButtons.appendChild(btn);
+    });
+    modalOverlay.hidden = false;
+    if (input) {
+      setTimeout(() => modalInput.focus(), 50);
+      modalInput.onkeydown = (e) => {
+        if (e.key === 'Enter') closeModal(modalInput.value || null);
+        if (e.key === 'Escape') closeModal(null);
+      };
+    } else {
+      setTimeout(() => modalButtons.querySelector('button')?.focus(), 50);
+    }
+    const escHandler = (e) => {
+      if (e.key === 'Escape') { document.removeEventListener('keydown', escHandler); closeModal(null); }
+    };
+    document.addEventListener('keydown', escHandler);
+  });
+}
+
+function showAlert(message) {
+  return showModal({ message, buttons: [{ label: 'OK', value: null, isPrimary: true }] });
+}
+
+function showConfirm(message) {
+  return showModal({
+    message,
+    buttons: [
+      { label: 'キャンセル', value: false },
+      { label: 'OK', value: true, isPrimary: true },
+    ],
+  });
+}
+
+function showPrompt(message, defaultValue = '') {
+  return showModal({
+    message,
+    input: true,
+    defaultValue,
+    buttons: [
+      { label: 'キャンセル', value: null },
+      { label: 'OK', value: 'INPUT', isPrimary: true },
+    ],
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── ダークモード ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+(function initDarkMode() {
+  const saved = localStorage.getItem('gakufu-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = saved ? saved === 'dark' : prefersDark;
+  applyTheme(dark);
+
+  if (darkModeToggle) {
+    bindTap(darkModeToggle, () => {
+      const nowDark = document.documentElement.dataset.theme === 'dark';
+      applyTheme(!nowDark);
+      try { localStorage.setItem('gakufu-theme', !nowDark ? 'dark' : 'light'); } catch (_) {}
+    });
+  }
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('gakufu-theme')) applyTheme(e.matches);
+  });
+}());
+
+function applyTheme(dark) {
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  if (darkModeToggle) darkModeToggle.textContent = dark ? '☀️' : '🌙';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── 検索 ──────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+(function initSearch() {
+  if (!searchInput) return;
+
+  searchInput.addEventListener('input', () => {
+    searchQuery = searchInput.value.trim();
+    if (searchClear) searchClear.hidden = !searchQuery;
+    renderList();
+  });
+
+  if (searchClear) {
+    bindTap(searchClear, () => {
+      searchQuery = '';
+      searchInput.value = '';
+      searchClear.hidden = true;
+      renderList();
+      searchInput.focus();
+    });
+  }
+}());
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── ドラッグ&ドロップ ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+(function initDragDrop() {
+  const appEl = document.querySelector('.app');
+  if (!appEl) return;
+
+  appEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    appEl.classList.add('drag-over');
+  });
+
+  appEl.addEventListener('dragleave', (e) => {
+    if (!appEl.contains(e.relatedTarget)) appEl.classList.remove('drag-over');
+  });
+
+  appEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    appEl.classList.remove('drag-over');
+    Array.from(e.dataTransfer.files).forEach((f) => addFile(f));
+  });
+}());
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── fullscreenchange ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) setReaderFocusMode(false);
+  updateFullscreenButtonState();
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  if (!document.webkitFullscreenElement) setReaderFocusMode(false);
+  updateFullscreenButtonState();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── ショートカット一覧 (? キー) ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function showShortcutHelp() {
+  const shortcuts = [
+    ['← →', 'ページめくり'],
+    ['Space / PageDown', '次のページ'],
+    ['PageUp', '前のページ'],
+    ['⌘Z / Ctrl+Z', '注釈を元に戻す'],
+    ['⌘Y / Ctrl+Y', '注釈をやり直す'],
+    ['P', 'ペンツール'],
+    ['M', 'マーカーツール'],
+    ['E', '消しゴムツール'],
+    ['S', 'スラーツール'],
+    ['1〜5', '指番号スタンプ'],
+    ['Escape', '選択解除 / 閉じる'],
+    ['?', 'このヘルプを表示'],
+  ];
+
+  const list = document.createElement('ul');
+  list.className = 'shortcut-list';
+  shortcuts.forEach(([key, desc]) => {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = desc;
+    const kbd = document.createElement('kbd');
+    kbd.className = 'shortcut-key';
+    kbd.textContent = key;
+    li.appendChild(span);
+    li.appendChild(kbd);
+    list.appendChild(li);
+  });
+
+  if (modalOverlay && modalMessage && modalButtons) {
+    modalMessage.textContent = 'キーボードショートカット';
+    modalInput.hidden = true;
+    modalButtons.innerHTML = '';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'modal-btn modal-btn-primary';
+    closeBtn.textContent = '閉じる';
+    closeBtn.addEventListener('click', () => { modalOverlay.hidden = true; list.remove(); });
+    modalButtons.appendChild(closeBtn);
+    modalMessage.after(list);
+    modalOverlay.hidden = false;
+    closeBtn.focus();
+  }
+}
+
+// keydown ハンドラに ? キー追加（既存 keydown イベントの末尾へフック）
+document.addEventListener('keydown', (e) => {
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable)) return;
+    e.preventDefault();
+    showShortcutHelp();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── 先読みキャッシュ ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function prefetchAdjacentPages(item, currentPage, totalPages, zoom) {
+  if (!item || item.type !== 'pdf') return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const targetScale = 1.5 * zoom;
+  const renderScale = Math.max(1.8, targetScale * dpr);
+
+  const pagesToPrefetch = [];
+  if (currentPage + 1 <= totalPages) pagesToPrefetch.push(currentPage + 1);
+  if (currentPage - 1 >= 1) pagesToPrefetch.push(currentPage - 1);
+
+  for (const p of pagesToPrefetch) {
+    const cacheKey = `${item.id}:${p}:${renderScale.toFixed(2)}`;
+    if (readerPageCache.has(cacheKey)) continue;
+    try {
+      const pdf = await getPdfDocument(item);
+      if (!pdf) continue;
+      const container = document.createElement('div');
+      container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+      document.body.appendChild(container);
+      try {
+        const canvas = await renderPdfPageToCanvas(pdf, p, container, renderScale);
+        if (canvas) {
+          readerPageCache.set(cacheKey, canvas);
+          container.removeChild(canvas);
+        }
+      } finally {
+        document.body.removeChild(container);
+      }
+    } catch (_) { /* prefetch failure is non-fatal */ }
+  }
+}
+
+// renderReaderPage 後に先読みをスケジュール
+const _origRenderReaderPage = typeof renderReaderPage === 'function' ? renderReaderPage : null;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── セットリスト ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function saveSetlists() {
+  try { localStorage.setItem('gakufu-setlists', JSON.stringify(setlists)); } catch (_) {}
+}
+
+function loadSetlists() {
+  try {
+    const raw = localStorage.getItem('gakufu-setlists');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) { setlists.length = 0; setlists.push(...parsed); }
+    }
+  } catch (_) {}
+}
+
+function renderSetlists() {
+  const sidebarEl = document.querySelector('.sidebar');
+  if (!sidebarEl) return;
+
+  let panelEl = sidebarEl.querySelector('.setlist-sidebar-panel');
+  if (!panelEl) {
+    panelEl = document.createElement('div');
+    panelEl.className = 'setlist-sidebar-panel';
+    sidebarEl.appendChild(panelEl);
+  }
+  panelEl.innerHTML = '';
+
+  if (setlists.length === 0) {
+    const hint = document.createElement('p');
+    hint.style.cssText = 'font-size:12px;color:var(--sub);padding:8px 14px;margin:0;';
+    hint.textContent = '楽譜のメニューから「セットリストに追加」できます';
+    panelEl.appendChild(hint);
+    return;
+  }
+
+  setlists.forEach((sl) => {
+    const panel = document.createElement('div');
+    panel.className = 'setlist-panel';
+
+    const header = document.createElement('div');
+    header.className = 'setlist-header';
+
+    const title = document.createElement('span');
+    title.className = 'setlist-header-title';
+    title.textContent = sl.name;
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--sub);font-size:14px;';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showConfirm(`「${sl.name}」を削除しますか？`).then((ok) => {
+        if (!ok) return;
+        const idx = setlists.findIndex(s => s.id === sl.id);
+        if (idx >= 0) setlists.splice(idx, 1);
+        if (activeSetlistId === sl.id) { activeSetlistId = null; setlistActiveIndex = -1; }
+        saveSetlists();
+        renderSetlists();
+      });
+    });
+
+    header.appendChild(title);
+    header.appendChild(delBtn);
+    panel.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'setlist-body';
+
+    const items = (sl.itemIds || []).map(id => library.find(it => it.id === id)).filter(Boolean);
+    items.forEach((item, i) => {
+      const row = document.createElement('div');
+      row.className = 'setlist-item';
+      if (activeSetlistId === sl.id && setlistActiveIndex === i) row.classList.add('active');
+
+      const num = document.createElement('span');
+      num.className = 'setlist-item-num';
+      num.textContent = i + 1;
+
+      const tit = document.createElement('span');
+      tit.className = 'setlist-item-title';
+      tit.textContent = item.title;
+
+      const rmBtn = document.createElement('button');
+      rmBtn.type = 'button';
+      rmBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--sub);font-size:12px;flex-shrink:0;';
+      rmBtn.textContent = '✕';
+      rmBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sl.itemIds.splice(sl.itemIds.indexOf(item.id), 1);
+        saveSetlists();
+        renderSetlists();
+      });
+
+      row.appendChild(num);
+      row.appendChild(tit);
+      row.appendChild(rmBtn);
+      row.addEventListener('click', () => {
+        activeSetlistId = sl.id;
+        setlistActiveIndex = i;
+        openReaderItem(item);
+        renderSetlists();
+      });
+      body.appendChild(row);
+    });
+    panel.appendChild(body);
+
+    if (activeSetlistId === sl.id && items.length > 0) {
+      const actions = document.createElement('div');
+      actions.className = 'setlist-actions';
+      const prevBtn = document.createElement('button');
+      prevBtn.className = 'setlist-btn';
+      prevBtn.textContent = '← 前の曲';
+      prevBtn.disabled = setlistActiveIndex <= 0;
+      prevBtn.addEventListener('click', () => {
+        setlistActiveIndex--;
+        const it = library.find(x => x.id === sl.itemIds[setlistActiveIndex]);
+        if (it) { openReaderItem(it); renderSetlists(); }
+      });
+      const nextBtn = document.createElement('button');
+      nextBtn.className = 'setlist-btn';
+      nextBtn.textContent = '次の曲 →';
+      nextBtn.disabled = setlistActiveIndex >= items.length - 1;
+      nextBtn.addEventListener('click', () => {
+        setlistActiveIndex++;
+        const it = library.find(x => x.id === sl.itemIds[setlistActiveIndex]);
+        if (it) { openReaderItem(it); renderSetlists(); }
+      });
+      actions.appendChild(prevBtn);
+      actions.appendChild(nextBtn);
+      panel.appendChild(actions);
+    }
+
+    panelEl.appendChild(panel);
+  });
+}
+
+function openSetlistSheet(item) {
+  if (!setlistSheet || !item) return;
+  if (setlistSheetItemTitle) setlistSheetItemTitle.textContent = `「${item.title}」を追加するセットリストを選択`;
+
+  renderSetlistSheetList(item);
+
+  setlistSheet.style.display = '';
+  setlistSheet.setAttribute('aria-hidden', 'false');
+  if (backdrop) { backdrop.style.display = 'block'; backdrop.classList.add('visible'); }
+}
+
+function closeSetlistSheet() {
+  if (!setlistSheet) return;
+  setlistSheet.style.display = 'none';
+  setlistSheet.setAttribute('aria-hidden', 'true');
+  if (backdrop) { backdrop.style.display = ''; backdrop.classList.remove('visible'); }
+}
+
+function renderSetlistSheetList(item) {
+  if (!setlistSheetList) return;
+  setlistSheetList.innerHTML = '';
+
+  setlists.forEach((sl) => {
+    const row = document.createElement('div');
+    row.className = 'setlist-sheet-item';
+    const inList = (sl.itemIds || []).includes(item.id);
+
+    const check = document.createElement('div');
+    check.className = `setlist-sheet-check${inList ? ' checked' : ''}`;
+    check.textContent = inList ? '✓' : '';
+
+    const name = document.createElement('span');
+    name.textContent = sl.name;
+    name.style.flex = '1';
+    name.style.fontSize = '14px';
+    name.style.color = 'var(--text)';
+
+    row.appendChild(check);
+    row.appendChild(name);
+    row.addEventListener('click', () => {
+      if (inList) {
+        sl.itemIds = sl.itemIds.filter(id => id !== item.id);
+      } else {
+        if (!sl.itemIds) sl.itemIds = [];
+        if (!sl.itemIds.includes(item.id)) sl.itemIds.push(item.id);
+      }
+      saveSetlists();
+      renderSetlistSheetList(item);
+      renderSetlists();
+    });
+    setlistSheetList.appendChild(row);
+  });
+}
+
+if (closeSetlistSheetButton) bindTap(closeSetlistSheetButton, closeSetlistSheet);
+
+if (setlistSheetCreateBtn) {
+  bindTap(setlistSheetCreateBtn, async () => {
+    const name = await showPrompt('セットリスト名を入力してください');
+    if (!name || !name.trim()) return;
+    const sl = { id: createLocalId(), name: name.trim(), itemIds: [] };
+    setlists.push(sl);
+    saveSetlists();
+    renderSetlistSheetList(null);
+    renderSetlists();
+    showToast(`「${sl.name}」を作成しました`, 'success');
+  });
+}
+
+loadSetlists();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── 楽譜メニューにセットリスト追加ボタンを差し込む ────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const _origBuildListRow = typeof buildListRow === 'function' ? buildListRow : null;
+
+// buildListRow のメニュー構築後に「セットリストに追加」ボタンを追加するため
+// buildListRow 内の menuItems.push(...) の直後に差し込むのが理想だが、
+// 現実的には buildListRow のラップでなく addEventListener 経由で対応
+document.addEventListener('setlistAddRequest', (e) => {
+  const { item } = e.detail;
+  if (item) openSetlistSheet(item);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── 先読みキャッシュ：ページ遷移後にバックグラウンドで実行 ───────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+(function patchRenderReaderPageForPrefetch() {
+  // renderReaderPage はグローバルスコープに定義されているためラップは不可能。
+  // 代わりに moveReaderPage の後に先読みをスケジュールする。
+  const _origMoveReaderPage = moveReaderPage;
+  // moveReaderPage 呼び出し後に prefetch を実行するよう visibilitychange で監視
+  // (直接ラップは不可のため、Reader ページ表示完了イベントを使う)
+  document.addEventListener('readerPageRendered', () => {
+    if (!activeItem || !readerState) return;
+    setTimeout(() => {
+      prefetchAdjacentPages(activeItem, readerState.page, readerState.pageCount, readerZoom).catch(() => {});
+    }, 300);
+  });
+}());
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── PWA: Service Worker 登録 ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+      console.warn('Service Worker registration failed:', err);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── アクセシビリティ: シートが閉じたとき inert を付与 ────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+(function initInertForSheets() {
+  const sheets = [previewSheet, editSheet, moveFolderSheet, setlistSheet].filter(Boolean);
+
+  const obs = new MutationObserver((mutations) => {
+    mutations.forEach((m) => {
+      if (m.type === 'attributes' && (m.attributeName === 'aria-hidden' || m.attributeName === 'style')) {
+        const el = m.target;
+        const hidden = el.getAttribute('aria-hidden') === 'true' || el.style.display === 'none';
+        if (hidden) { el.inert = true; }
+        else { el.inert = false; }
+      }
+    });
+  });
+
+  sheets.forEach((s) => {
+    const hidden = s.getAttribute('aria-hidden') === 'true' || s.style.display === 'none';
+    s.inert = hidden;
+    obs.observe(s, { attributes: true, attributeFilter: ['aria-hidden', 'style'] });
+  });
+}());
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── オンボーディング (初回表示) ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+(function showOnboarding() {
+  try {
+    if (localStorage.getItem('gakufu-onboarding-done')) return;
+  } catch (_) { return; }
+
+  setTimeout(async () => {
+    if (library.length > 0) return; // 既存ユーザーは表示しない
+
+    if (!modalOverlay || !modalMessage || !modalButtons) return;
+
+    const features = [
+      ['📄', 'PDFや画像の楽譜を追加して管理'],
+      ['✏️', 'ペン・マーカー・スタンプで書き込み'],
+      ['🎵', 'メトロノームで練習をサポート'],
+      ['🎸', 'チューナーでチューニング'],
+      ['☁️', 'Google Drive で複数デバイス同期'],
+    ];
+
+    const container = document.createElement('div');
+    container.className = 'onboarding-features';
+    features.forEach(([icon, text]) => {
+      const row = document.createElement('div');
+      row.className = 'onboarding-feature';
+      const ic = document.createElement('span');
+      ic.className = 'onboarding-icon';
+      ic.textContent = icon;
+      const tx = document.createElement('span');
+      tx.textContent = text;
+      row.appendChild(ic);
+      row.appendChild(tx);
+      container.appendChild(row);
+    });
+
+    modalMessage.textContent = '楽譜ライブラリへようこそ！';
+    modalInput.hidden = true;
+    modalButtons.innerHTML = '';
+    const startBtn = document.createElement('button');
+    startBtn.type = 'button';
+    startBtn.className = 'modal-btn modal-btn-primary';
+    startBtn.textContent = 'はじめる';
+    startBtn.addEventListener('click', () => {
+      modalOverlay.hidden = true;
+      container.remove();
+      try { localStorage.setItem('gakufu-onboarding-done', '1'); } catch (_) {}
+    });
+    modalButtons.appendChild(startBtn);
+    modalMessage.after(container);
+    modalOverlay.hidden = false;
+    startBtn.focus();
+  }, 800);
+}());
+

@@ -1,0 +1,18 @@
+{
+  "name": "楽譜ライブラリ",
+  "short_name": "楽譜",
+  "description": "PDFや画像の楽譜を管理・閲覧・書き込みできるウェブアプリ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f3f5",
+  "theme_color": "#111111",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
