@@ -6390,6 +6390,8 @@ document.fonts.load('48px "Noto Music"', '♯♭♮').catch(() => {});
   });
   renderSidebar();
   renderList();
+  // ライブラリロード完了後にオンボーディング判定（タイミング問題を排除）
+  if (typeof maybeShowOnboarding === 'function') maybeShowOnboarding();
 })();
 
 // --- Google Auth & Drive ---
@@ -6960,8 +6962,9 @@ function showToast(message, type = 'info') {
 // ── モーダル ─────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function showModal({ message, input = false, defaultValue = '', buttons }) {
+function showModal({ message, input = false, defaultValue = '', buttons = [] }) {
   return new Promise((resolve) => {
+    if (!message && !input) { resolve(null); return; } // 空コンテンツガード
     if (!modalOverlay || !modalMessage || !modalButtons) {
       // フォールバック
       if (input) { resolve(window.prompt(message, defaultValue)); return; }
@@ -7504,57 +7507,55 @@ if ('serviceWorker' in navigator) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── オンボーディング (初回表示) ──────────────────────────────────────────────
+// ── ※ ライブラリロード完了後に initAfterLibraryLoad() から呼ばれる ────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
-(function showOnboarding() {
+function maybeShowOnboarding() {
+  // library.length > 0 → 既存ユーザー → 表示しない
+  if (library.length > 0) return;
   try {
     if (localStorage.getItem('gakufu-onboarding-done')) return;
   } catch (_) { return; }
+  if (!modalOverlay || !modalMessage || !modalButtons) return;
 
-  setTimeout(async () => {
-    if (library.length > 0) return; // 既存ユーザーは表示しない
+  const features = [
+    ['📄', 'PDFや画像の楽譜を追加して管理'],
+    ['✏️', 'ペン・マーカー・スタンプで書き込み'],
+    ['🎵', 'メトロノームで練習をサポート'],
+    ['🎸', 'チューナーでチューニング'],
+    ['☁️', 'Google Drive で複数デバイス同期'],
+  ];
 
-    if (!modalOverlay || !modalMessage || !modalButtons) return;
+  const container = document.createElement('div');
+  container.className = 'onboarding-features';
+  features.forEach(([icon, text]) => {
+    const row = document.createElement('div');
+    row.className = 'onboarding-feature';
+    const ic = document.createElement('span');
+    ic.className = 'onboarding-icon';
+    ic.textContent = icon;
+    const tx = document.createElement('span');
+    tx.textContent = text;
+    row.appendChild(ic);
+    row.appendChild(tx);
+    container.appendChild(row);
+  });
 
-    const features = [
-      ['📄', 'PDFや画像の楽譜を追加して管理'],
-      ['✏️', 'ペン・マーカー・スタンプで書き込み'],
-      ['🎵', 'メトロノームで練習をサポート'],
-      ['🎸', 'チューナーでチューニング'],
-      ['☁️', 'Google Drive で複数デバイス同期'],
-    ];
-
-    const container = document.createElement('div');
-    container.className = 'onboarding-features';
-    features.forEach(([icon, text]) => {
-      const row = document.createElement('div');
-      row.className = 'onboarding-feature';
-      const ic = document.createElement('span');
-      ic.className = 'onboarding-icon';
-      ic.textContent = icon;
-      const tx = document.createElement('span');
-      tx.textContent = text;
-      row.appendChild(ic);
-      row.appendChild(tx);
-      container.appendChild(row);
-    });
-
-    modalMessage.textContent = '楽譜ライブラリへようこそ！';
-    modalInput.hidden = true;
-    modalButtons.innerHTML = '';
-    const startBtn = document.createElement('button');
-    startBtn.type = 'button';
-    startBtn.className = 'modal-btn modal-btn-primary';
-    startBtn.textContent = 'はじめる';
-    startBtn.addEventListener('click', () => {
-      modalOverlay.classList.remove('is-open');
-      container.remove();
-      try { localStorage.setItem('gakufu-onboarding-done', '1'); } catch (_) {}
-    });
-    modalButtons.appendChild(startBtn);
-    modalMessage.after(container);
-    modalOverlay.classList.add('is-open');
-    startBtn.focus();
-  }, 800);
-}());
+  modalMessage.textContent = '楽譜ライブラリへようこそ！';
+  modalInput.hidden = true;
+  modalButtons.innerHTML = '';
+  const startBtn = document.createElement('button');
+  startBtn.type = 'button';
+  startBtn.className = 'modal-btn modal-btn-primary';
+  startBtn.textContent = 'はじめる';
+  startBtn.addEventListener('click', () => {
+    modalOverlay.classList.remove('is-open');
+    container.remove();
+    try { localStorage.setItem('gakufu-onboarding-done', '1'); } catch (_) {}
+  });
+  modalButtons.appendChild(startBtn);
+  modalMessage.after(container);
+  modalOverlay.classList.add('is-open');
+  startBtn.focus();
+}
 
