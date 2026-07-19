@@ -6380,6 +6380,10 @@ document.fonts.load('48px "Noto Music"', '♯♭♮').catch(() => {});
   } catch (err) {
     console.warn('Library DB unavailable:', err);
   }
+  // 既存ユーザーにはオンボーディングを表示しない
+  if (library.length > 0) {
+    try { localStorage.setItem('gakufu-onboarding-done', '1'); } catch (_) {}
+  }
   loadFavoritesFromStorage();
   openAnnotationDb().then(loadAllAnnotationsFromDb).catch((err) => {
     console.warn('IndexedDB unavailable (private browsing?), annotations will not be persisted locally:', err);
@@ -6973,7 +6977,7 @@ function showModal({ message, input = false, defaultValue = '', buttons }) {
     }
     modalButtons.innerHTML = '';
     const closeModal = (value) => {
-      modalOverlay.hidden = true;
+      modalOverlay.classList.remove('is-open');
       resolve(value);
     };
     buttons.forEach(({ label, value, isPrimary }) => {
@@ -6986,7 +6990,7 @@ function showModal({ message, input = false, defaultValue = '', buttons }) {
       });
       modalButtons.appendChild(btn);
     });
-    modalOverlay.hidden = false;
+    modalOverlay.classList.add('is-open');
     if (input) {
       setTimeout(() => modalInput.focus(), 50);
       modalInput.onkeydown = (e) => {
@@ -7161,10 +7165,10 @@ function showShortcutHelp() {
     closeBtn.type = 'button';
     closeBtn.className = 'modal-btn modal-btn-primary';
     closeBtn.textContent = '閉じる';
-    closeBtn.addEventListener('click', () => { modalOverlay.hidden = true; list.remove(); });
+    closeBtn.addEventListener('click', () => { modalOverlay.classList.remove('is-open'); list.remove(); });
     modalButtons.appendChild(closeBtn);
     modalMessage.after(list);
-    modalOverlay.hidden = false;
+    modalOverlay.classList.add('is-open');
     closeBtn.focus();
   }
 }
@@ -7543,13 +7547,13 @@ if ('serviceWorker' in navigator) {
     startBtn.className = 'modal-btn modal-btn-primary';
     startBtn.textContent = 'はじめる';
     startBtn.addEventListener('click', () => {
-      modalOverlay.hidden = true;
+      modalOverlay.classList.remove('is-open');
       container.remove();
       try { localStorage.setItem('gakufu-onboarding-done', '1'); } catch (_) {}
     });
     modalButtons.appendChild(startBtn);
     modalMessage.after(container);
-    modalOverlay.hidden = false;
+    modalOverlay.classList.add('is-open');
     startBtn.focus();
   }, 800);
 }());
