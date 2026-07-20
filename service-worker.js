@@ -1,9 +1,10 @@
-const CACHE_NAME = 'gakufu-v1';
+const CACHE_NAME = 'gakufu-v2';
 
 // オフライン時に提供するアセット（vendor + フォントは除く）
 const PRECACHE = [
   './',
   './index.html',
+  './style.css',
   './script.js',
   './favicon.svg',
   './vendor/pdf.min.js',
