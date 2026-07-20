@@ -1,15 +1,11 @@
-const CACHE_NAME = 'gakufu-v2';
+const CACHE_NAME = 'gakufu-v3';
 
-// オフライン時に提供するアセット（vendor + フォントは除く）
+// バージョン付きアセットのみキャッシュ（HTMLは常にネットワーク優先）
 const PRECACHE = [
-  './',
-  './index.html',
-  './style.css',
-  './script.js',
-  './favicon.svg',
   './vendor/pdf.min.js',
   './vendor/pdf.worker.min.js',
   './vendor/pdf-lib.min.js',
+  './favicon.svg',
 ];
 
 self.addEventListener('install', (e) => {
@@ -27,27 +23,59 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Google API・Drive・gsi はネットワーク優先（キャッシュしない）
-  const url = e.request.url;
-  if (url.includes('googleapis.com') || url.includes('accounts.google.com') || url.includes('fonts.')) {
+  const url = new URL(e.request.url);
+
+  // Google API・Drive・フォントはSWを素通り
+  if (
+    url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('accounts.google.com') ||
+    url.hostname.includes('fonts.gstatic.com') ||
+    url.hostname.includes('fonts.googleapis.com')
+  ) {
     return;
   }
 
-  // キャッシュファースト戦略
-  e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(e.request).then((res) => {
-        // 成功したレスポンスをキャッシュに追加
-        if (res && res.status === 200 && e.request.method === 'GET') {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => {
-        // オフライン時に index.html を返す（ナビゲーションリクエストのみ）
-        if (e.request.mode === 'navigate') return caches.match('./index.html');
-      });
-    })
-  );
+  // HTML ナビゲーションリクエスト → ネットワーク優先、失敗時だけキャッシュ
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // バージョン付きアセット（?v= 含む）→ キャッシュ優先
+  if (url.search.includes('v=')) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(e.request).then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  // vendor / favicon など静的アセット → キャッシュ優先
+  if (url.pathname.startsWith('/philoscore/vendor/') || url.pathname.endsWith('.svg')) {
+    e.respondWith(
+      caches.match(e.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(e.request).then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  // それ以外 → ネットワーク（SW は介在しない）
 });
