@@ -3113,3 +3113,77 @@ justify-content: center;
 font-size: 13px;
       }
       .setlist-sheet-check.checked { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ── ダークモード専用上書き ──────────────────────────────────────────
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 注釈バー: アクティブ／ホバー状態（黒透明→白透明に反転）── */
+[data-theme="dark"] .ab-btn.active,
+[data-theme="dark"] .ab-bowslur-opt:hover,
+[data-theme="dark"] .ab-bowslur-opt.active,
+[data-theme="dark"] .ab-size.selected {
+  background: rgba(255, 255, 255, 0.14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ab-btn.active,
+  :root:not([data-theme="light"]) .ab-bowslur-opt:hover,
+  :root:not([data-theme="light"]) .ab-bowslur-opt.active,
+  :root:not([data-theme="light"]) .ab-size.selected {
+    background: rgba(255, 255, 255, 0.14);
+  }
+}
+
+/* ── サイズドット: 暗背景で見やすい色に ── */
+[data-theme="dark"] .ab-size::after { background: var(--sub); }
+[data-theme="dark"] .ab-size.selected::after { background: var(--text); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ab-size::after { background: var(--sub); }
+  :root:not([data-theme="light"]) .ab-size.selected::after { background: var(--text); }
+}
+
+/* ── カラースウォッチ: 枠・選択リングをダーク背景向けに ── */
+[data-theme="dark"] .ab-color {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+[data-theme="dark"] .ab-color.selected {
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 2px var(--card) inset, 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+[data-theme="dark"] .ab-color-custom {
+  background: var(--card-hover) !important;
+  border: 1.5px solid var(--line) !important;
+  color: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ab-color {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
+  }
+  :root:not([data-theme="light"]) .ab-color.selected {
+    border-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 2px var(--card) inset, 0 0 0 1px rgba(255, 255, 255, 0.22);
+  }
+  :root:not([data-theme="light"]) .ab-color-custom {
+    background: var(--card-hover) !important;
+    border: 1.5px solid var(--line) !important;
+    color: var(--text);
+  }
+}
+
+/* ── スタンプフロートバー カラースウォッチ枠 ── */
+[data-theme="dark"] .sfb-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sfb-color-swatch {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* ── ホバー/アクティブで黒透明を使っている要素 ── */
+[data-theme="dark"] .tool-section-toggle:hover,
+[data-theme="dark"] .bookmark-add-btn:hover { background: var(--line); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tool-section-toggle:hover,
+  :root:not([data-theme="light"]) .bookmark-add-btn:hover { background: var(--line); }
+}
