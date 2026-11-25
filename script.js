@@ -840,7 +840,7 @@ function cleanupLibraryItem(item) {
     }
   });
 
-  if (item.driveFileId && googleAccessToken) {
+  if (item.driveFileId && isSignedIn()) {
     driveApiFetch('DELETE', `/drive/v3/files/${item.driveFileId}`)
       .catch((err) => console.error('Drive file delete failed:', err));
   }
@@ -2448,8 +2448,8 @@ async function placeAnnotationStamp(value = null) {
     const bowTypeMap = { u: 'up', up: 'up', d: 'down', down: 'down' };
     const bowType = bowTypeMap[value] || 'up';
     const size = getStampFontSize(annotationCanvas, 1, tool.size);
-    const symType = bowType === 'up' ? 'upBow' : 'downBow';
-    if (!drawSymbolOnCanvas(symType, tool.color, point.x, point.y, size * (2 / 3))) {
+    const src = bowType === 'up' ? './assets/Up-bow.svg' : './assets/Down-bow.svg';
+    if (!drawPngSymbolOnCanvas(src, point.x, point.y, size * (2 / 3))) {
       if (bowType === 'up') drawUpBowSymbol(point.x, point.y, size, tool.color);
       else drawDownBowSymbol(point.x, point.y, size, tool.color);
     }
@@ -3346,15 +3346,15 @@ function saveItemMetaToDb(item) {
     driveFileId: item.driveFileId || null,
     fileName: item.file?.name || `${item.title}.pdf`,
     fileLastModified: item.file?.lastModified || 0,
-    fileType: item.file?.type || '',
   };
   libraryDb.transaction('library', 'readwrite').objectStore('library').put(meta, item.id);
 }
 
 function savePdfToDb(itemId, file) {
   if (!libraryDb || !file) return;
-  // Store Blob/File directly — avoids reading the entire file into memory as ArrayBuffer
-  libraryDb.transaction('pdfs', 'readwrite').objectStore('pdfs').put(file, itemId);
+  file.arrayBuffer().then((buffer) => {
+    libraryDb.transaction('pdfs', 'readwrite').objectStore('pdfs').put(buffer, itemId);
+  }).catch((err) => console.warn('PDF save to local DB failed:', err));
 }
 
 function deleteItemFromDb(itemId) {
@@ -3393,16 +3393,12 @@ async function loadLibraryFromDb() {
         driveFileId: meta.driveFileId || null,
       };
       if (!buffer) {
-        // File not in local storage — add as stub so loadFromDrive fills it
+        // PDF not in local storage — add as stub so loadFromDrive fills the file
         // without overwriting the locally-stored folder assignment.
         library.push({ ...base, file: null, url: null });
       } else {
-        const name = meta.fileName || `${meta.title}.pdf`;
-        // buffer may be an ArrayBuffer (old format) or a Blob/File (new format)
-        const storedType = buffer instanceof Blob ? buffer.type : '';
-        const fileType = storedType || meta.fileType || (meta.type === 'image' ? 'image/jpeg' : 'application/pdf');
-        const file = new File([buffer], name, {
-          type: fileType,
+        const file = new File([buffer], meta.fileName || `${meta.title}.pdf`, {
+          type: 'application/pdf',
           lastModified: meta.fileLastModified || 0,
         });
         library.push({ ...base, file, url: URL.createObjectURL(file) });
@@ -3538,11 +3534,8 @@ function replayStampOp(ctx, canvas, op) {
     const accTypeMap = { '#': 'sharp', sharp: 'sharp', b: 'flat', flat: 'flat', n: 'natural', natural: 'natural' };
     drawMusicSymbolText(charMap[accTypeMap[op.v] || 'sharp'], pt, fontSize, op.c);
   } else if (op.tt === 'bowing') {
-    const symType = (op.v === 'down') ? 'downBow' : 'upBow';
-    if (!drawSymbolOnCanvas(symType, op.c || '#111111', pt.x, pt.y, fontSize * (2 / 3))) {
-      if (op.v === 'down') drawDownBowSymbol(pt.x, pt.y, fontSize, op.c || '#111111');
-      else drawUpBowSymbol(pt.x, pt.y, fontSize, op.c || '#111111');
-    }
+    const src = (op.v === 'down') ? './assets/Down-bow.svg' : './assets/Up-bow.svg';
+    drawPngSymbolOnCanvas(src, pt.x, pt.y, fontSize * (2 / 3));
   } else if (op.tt === 'freeText') {
     drawOutlinedText(String(op.v ?? ''), pt, fontSize, op.c, 300);
   } else if (op.tt === 'circle') {
@@ -6414,8 +6407,6 @@ let driveAppFolderId = null;
 let driveMetadataFileId = null;
 let driveAnnotationFileId = null;
 let driveAnnotationSyncTimer = null;
-let _tokenRefreshPromise = null;
-const _tokenRefreshResolvers = [];
 
 const loginButton = document.getElementById('loginButton');
 const logoutButton = document.getElementById('logoutButton');
@@ -6440,43 +6431,12 @@ function renderAuthUI(statusText) {
 function handleTokenResponse(response) {
   if (response.error) {
     console.error('Auth error:', response.error);
-    const resolvers = _tokenRefreshResolvers.splice(0);
-    resolvers.forEach(({ reject }) => reject(new Error(response.error)));
     return;
   }
-  const isAutoRefresh = _tokenRefreshResolvers.length > 0;
   googleAccessToken = response.access_token;
   googleTokenExpiry = Date.now() + (response.expires_in - 60) * 1000;
-  if (isAutoRefresh) {
-    // 自動リフレッシュ完了 — 待機していた Drive 処理を再開
-    _tokenRefreshResolvers.splice(0).forEach(({ resolve }) => resolve());
-  } else {
-    renderAuthUI('読み込み中…');
-    loadFromDrive();
-  }
-}
-
-// トークンが期限切れなら Google GIS でサイレントリフレッシュを試みる
-async function ensureValidToken() {
-  if (googleAccessToken && Date.now() < googleTokenExpiry) return;
-  if (!googleTokenClient) throw new Error('Not signed in');
-  if (!_tokenRefreshPromise) {
-    _tokenRefreshPromise = new Promise((resolve, reject) => {
-      _tokenRefreshResolvers.push({ resolve, reject });
-      // prompt:'' = 既存の同意があれば無操作でサイレント更新、なければポップアップ
-      googleTokenClient.requestAccessToken({ prompt: '' });
-    }).finally(() => { _tokenRefreshPromise = null; });
-  }
-  try {
-    await _tokenRefreshPromise;
-  } catch (err) {
-    // セッション失効等でリフレッシュ不可 — ログイン UI に戻す
-    googleAccessToken = null;
-    googleTokenExpiry = 0;
-    renderAuthUI();
-    showToast('Googleセッションが失効しました。再ログインしてください。', 'error');
-    throw err;
-  }
+  renderAuthUI('読み込み中…');
+  loadFromDrive();
 }
 
 function initGoogleTokenClient() {
@@ -6540,20 +6500,15 @@ if (loginButton) {
 }
 
 async function driveApiFetch(method, path, options = {}) {
-  await ensureValidToken();
-  const doFetch = () => fetch(`https://www.googleapis.com${path}`, {
+  if (!googleAccessToken) throw new Error('Not signed in');
+  const res = await fetch(`https://www.googleapis.com${path}`, {
     method,
-    headers: { 'Authorization': `Bearer ${googleAccessToken}`, ...options.headers },
+    headers: {
+      'Authorization': `Bearer ${googleAccessToken}`,
+      ...options.headers,
+    },
     body: options.body,
   });
-  let res = await doFetch();
-  if (res.status === 401) {
-    // サーバー側でトークンが失効していた場合、強制リフレッシュして1回リトライ
-    googleAccessToken = null;
-    googleTokenExpiry = 0;
-    await ensureValidToken();
-    res = await doFetch();
-  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Drive API ${res.status}: ${text}`);
@@ -6583,36 +6538,20 @@ async function getOrCreateDriveAppFolder() {
 }
 
 async function uploadPdfToDrive(item) {
-  if (!googleAccessToken || !item.file) return;
+  if (!isSignedIn() || !item.file) return;
   try {
     const folderId = await getOrCreateDriveAppFolder();
-    const mimeType = item.file.type || 'application/octet-stream';
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: item.file.name, parents: [folderId] })], { type: 'application/json' }));
+    form.append('file', item.file);
 
-    // Use resumable upload — works for any file size (multipart is limited to 5 MB)
-    const initRes = await fetch(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${googleAccessToken}`,
-          'Content-Type': 'application/json',
-          'X-Upload-Content-Type': mimeType,
-          'X-Upload-Content-Length': String(item.file.size),
-        },
-        body: JSON.stringify({ name: item.file.name, parents: [folderId] }),
-      }
-    );
-    if (!initRes.ok) throw new Error(`Upload init failed: ${initRes.status}`);
-    const uploadUrl = initRes.headers.get('Location');
-    if (!uploadUrl) throw new Error('アップロードURLが取得できませんでした');
-
-    const uploadRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': mimeType },
-      body: item.file,
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${googleAccessToken}` },
+      body: form,
     });
-    if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`);
-    const data = await uploadRes.json();
+    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+    const data = await res.json();
     item.driveFileId = data.id;
     await saveLibraryMetadata();
   } catch (err) {
@@ -6621,7 +6560,7 @@ async function uploadPdfToDrive(item) {
 }
 
 async function saveLibraryMetadata() {
-  if (!googleAccessToken) return;
+  if (!isSignedIn()) return;
   try {
     const folderId = await getOrCreateDriveAppFolder();
     const nowIso = new Date().toISOString();
@@ -6681,7 +6620,7 @@ async function saveLibraryMetadata() {
 }
 
 async function loadFromDrive() {
-  if (!googleAccessToken) return;
+  if (!isSignedIn()) return;
   try {
     renderAuthUI('読み込み中…');
     const folderId = await getOrCreateDriveAppFolder();
@@ -6781,7 +6720,7 @@ async function loadFromDrive() {
 }
 
 function scheduleDriveAnnotationSync() {
-  if (!googleAccessToken) return;
+  if (!isSignedIn()) return;
   if (driveAnnotationSyncTimer) clearTimeout(driveAnnotationSyncTimer);
   driveAnnotationSyncTimer = setTimeout(() => {
     saveAnnotationsToDrive().catch((err) => {
@@ -6792,7 +6731,7 @@ function scheduleDriveAnnotationSync() {
 }
 
 async function saveAnnotationsToDrive() {
-  if (!googleAccessToken) return;
+  if (!isSignedIn()) return;
   const folderId = await getOrCreateDriveAppFolder();
   const payload = JSON.stringify({
     version: 1,
