@@ -5360,121 +5360,82 @@ function renderList() {
   }
 }
 
-// Drive アップロードを1件ずつ順番に処理するキュー
-let _driveUploadQueue = Promise.resolve();
-function enqueueDriveUpload(item) {
-  _driveUploadQueue = _driveUploadQueue
-    .then(() => uploadPdfToDrive(item))
-    .catch((err) => console.error('Drive upload failed:', err));
-}
-
-// 1ファイルをライブラリに登録してDBに保存する（renderList/Drive upload は呼ばない）
-function _registerFileItem(file) {
-  const fileName = file.name || '';
-  const lowerName = fileName.toLowerCase();
-  const fileType = file.type || '';
-  const isPdf = fileType === 'application/pdf' || lowerName.endsWith('.pdf');
-  const isImage =
-    fileType.startsWith('image/') ||
-    /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(lowerName);
-
-  if (!isPdf && !isImage) return { error: 'unsupported' };
-
-  const duplicateItem = library.find((item) => isSameLibraryFile(item, file));
-  if (duplicateItem) return { error: 'duplicate', title: duplicateItem.title };
-
-  const title = createUniqueLibraryTitle(baseTitle(file.name));
-  const rawTarget = getEffectiveFolderId();
-  let targetFolderId;
-  if (rawTarget === 'all' || rawTarget === 'favorites' || !getFolderById(rawTarget)) {
-    targetFolderId = 'inbox';
-  } else {
-    const node = getFolderById(rawTarget);
-    if (node && (node.kind === 'section' || node.kind === 'group')) {
-      const practiceId = `${rawTarget}-practice`;
-      targetFolderId = getFolderById(practiceId) ? practiceId : rawTarget;
-    } else {
-      targetFolderId = rawTarget;
-    }
-  }
-
-  const item = {
-    id: createLocalId(),
-    title,
-    composer: '',
-    type: isPdf ? 'pdf' : 'image',
-    file,
-    url: URL.createObjectURL(file),
-    lastPage: 1,
-    folderIds: [targetFolderId],
-    folderId: targetFolderId,
-  };
-
-  library.unshift(item);
-  saveItemMetaToDb(item);
-  savePdfToDb(item.id, file);
-  return { item };
-}
-
-// 複数ファイルをまとめて追加（renderList は最後に1回だけ）
-async function addFiles(files) {
-  if (!files || files.length === 0) return;
-
-  let addedCount = 0;
-  let skippedDup = 0;
-  let skippedType = 0;
-
-  for (const file of files) {
-    try {
-      const result = _registerFileItem(file);
-      if (result.error === 'unsupported') { skippedType++; }
-      else if (result.error === 'duplicate') { skippedDup++; }
-      else if (result.item) {
-        addedCount++;
-        enqueueDriveUpload(result.item);
-      }
-    } catch (err) {
-      console.error('Failed to register file:', file.name, err);
-    }
-  }
-
-  if (addedCount > 0) {
-    if (activeFolderId === 'favorites') {
-      activeFolderId = 'all';
-      activeStatusFilter = 'all';
-      activeTypeFilter = 'all';
-    }
-    renderList();
-    if (addedCount > 1) showToast(`${addedCount}件の楽譜を追加しました。`);
-  }
-  if (skippedType > 0) showToast('PDFまたは画像ファイルのみ追加できます。', 'error');
-  if (skippedDup > 0 && addedCount === 0 && skippedType === 0) {
-    showToast('選択したファイルはすでに追加されています。');
-  }
-}
-
 async function addFile(file) {
-  if (!file) return;
+  if (!file) {
+    return;
+  }
+
   let stage = 'initial';
   try {
-    stage = 'register';
-    const result = _registerFileItem(file);
-    if (result.error === 'unsupported') {
+    stage = 'type-check';
+    const fileName = file.name || '';
+    const lowerName = fileName.toLowerCase();
+    const fileType = file.type || '';
+    const isPdf = fileType === 'application/pdf' || lowerName.endsWith('.pdf');
+    const isImage =
+      fileType.startsWith('image/') ||
+      /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(lowerName);
+
+    if (!isPdf && !isImage) {
+      stage = 'unsupported-file';
       showToast('PDFまたは画像ファイルのみ追加できます。', 'error');
       return;
     }
-    if (result.error === 'duplicate') {
-      showToast(`「${result.title}」はすでに追加されています。`);
+
+    stage = 'duplicate-check';
+    const duplicateItem = library.find((item) => isSameLibraryFile(item, file));
+    if (duplicateItem) {
+      stage = 'duplicate-found';
+      showToast(`「${duplicateItem.title}」はすでに追加されています。`);
       return;
     }
+
+    stage = 'prepare-item';
+    const title = createUniqueLibraryTitle(baseTitle(file.name));
+    // Use effective folder (respects current category + sub-filter state)
+    const rawTarget = getEffectiveFolderId();
+    let targetFolderId;
+    if (rawTarget === 'all' || rawTarget === 'favorites' || !getFolderById(rawTarget)) {
+      targetFolderId = 'inbox';
+    } else {
+      const node = getFolderById(rawTarget);
+      // セクション/グループフォルダ（すべて選択中など）は練習中サブフォルダへ
+      if (node && (node.kind === 'section' || node.kind === 'group')) {
+        const practiceId = `${rawTarget}-practice`;
+        targetFolderId = getFolderById(practiceId) ? practiceId : rawTarget;
+      } else {
+        targetFolderId = rawTarget;
+      }
+    }
+
+    const item = {
+      id: createLocalId(),
+      title,
+      composer: '',
+      type: isPdf ? 'pdf' : 'image',
+      file,
+      url: URL.createObjectURL(file),
+      lastPage: 1,
+      folderIds: [targetFolderId],
+      folderId: targetFolderId,
+    };
+
+    stage = 'create-object-url';
+    library.unshift(item);
+    saveItemMetaToDb(item);
+    savePdfToDb(item.id, file);
+
     stage = 'render-list';
+    // お気に入りタブ中はアイテムが見えないので全体表示へ
     if (activeFolderId === 'favorites') {
       activeFolderId = 'all';
       activeStatusFilter = 'all';
       activeTypeFilter = 'all';
     }
     renderList();
-    enqueueDriveUpload(result.item);
+
+    // Drive同期（未ログインの場合は何もしない）
+    uploadPdfToDrive(item).catch((err) => console.error('Drive upload failed:', err));
   } catch (error) {
     console.error('Failed to add file.', error);
     const reason = error && error.message ? `\n(${error.message})` : '';
@@ -5642,7 +5603,7 @@ function bindTap(button, handler) {
 }
 
 fileInput.addEventListener('change', (event) => {
-  addFiles(Array.from(event.target.files));
+  Array.from(event.target.files).forEach((f) => addFile(f));
   fileInput.value = '';
 });
 
